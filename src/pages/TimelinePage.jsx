@@ -16,6 +16,16 @@ import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
 import GroupModal from "../components/timeline/GroupModal";
 
+const toDateTimeLocalValue = (timestamp) => {
+  if (!Number.isFinite(Number(timestamp))) return "";
+
+  const date = new Date(Number(timestamp));
+  const localDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000,
+  );
+  return localDate.toISOString().slice(0, 16);
+};
+
 export default function TimelinePage({
   images,
   isLoading,
@@ -157,8 +167,29 @@ export default function TimelinePage({
         }
 
         return item;
-      });
+      })
+      .sort(
+        (a, b) =>
+          a.timestamp - b.timestamp || String(a.id).localeCompare(String(b.id)),
+      );
   }, [items]);
+
+  const selectedImages = useMemo(
+    () =>
+      selectedIds
+        .map((id) => items.find((item) => item.id === id))
+        .filter(Boolean)
+        .sort(
+          (a, b) =>
+            a.timestamp - b.timestamp ||
+            String(a.id).localeCompare(String(b.id)),
+        ),
+    [items, selectedIds],
+  );
+  const firstSelectedImage = selectedImages[0] || null;
+  const firstImageDateTime = firstSelectedImage
+    ? toDateTimeLocalValue(firstSelectedImage.timestamp)
+    : "";
 
   // ---------------------------------------------------------------------------
   // Create and track blob URLs
@@ -474,12 +505,25 @@ export default function TimelinePage({
   // Save Group
   // ---------------------------------------------------------------------------
   const handleSaveGroup = (groupData) => {
-    const timestamp = groupData.date
+    const photoIds = [...new Set(selectedIds)];
+    const anchorId = firstSelectedImage
+      ? String(firstSelectedImage.fileId || firstSelectedImage.id)
+      : null;
+
+    if (!anchorId) return;
+
+    const selectedDateDiffersFromDefault =
+      groupData.date && groupData.date !== firstImageDateTime;
+    const customTimestamp = selectedDateDiffersFromDefault
       ? new Date(groupData.date).getTime()
+      : firstSelectedImage.timestamp;
+    const timestamp = Number.isFinite(customTimestamp)
+      ? customTimestamp
       : Date.now();
 
     const newGroup = {
-      id: `group_${Date.now()}`,
+      // Anchor group identity to a stable member image key, never its filename.
+      id: `group_${anchorId}`,
       type: "event_group",
       title: groupData.title || "Milestone Event",
       note: groupData.note || "",
@@ -494,7 +538,7 @@ export default function TimelinePage({
         hour: "2-digit",
         minute: "2-digit",
       }),
-      photoIds: selectedIds,
+      photoIds,
       updatedRecently: true,
     };
 
@@ -1065,6 +1109,7 @@ export default function TimelinePage({
       <GroupModal
         isOpen={showGroupModal}
         selectedCount={selectedIds.length}
+        defaultDate={firstImageDateTime}
         onClose={() => setShowGroupModal(false)}
         onSave={handleSaveGroup}
       />
@@ -1151,42 +1196,47 @@ export default function TimelinePage({
                 Failed to render image.
               </div>
             )}
-
-            {/* Next / Prev Controls */}
-            {modalGroup.photos.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleModalNavigate(
-                      modalGroup.currentIndex === 0
-                        ? modalGroup.photos.length - 1
-                        : modalGroup.currentIndex - 1,
-                    )
-                  }
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
-                  title="Previous Evidence"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleModalNavigate(
-                      modalGroup.currentIndex === modalGroup.photos.length - 1
-                        ? 0
-                        : modalGroup.currentIndex + 1,
-                    )
-                  }
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
-                  title="Next Evidence"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
           </div>
+
+          {/* Keep navigation controls at the viewport edges, independent of
+              the centered image's width. */}
+          {modalGroup.photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleModalNavigate(
+                    modalGroup.currentIndex === 0
+                      ? modalGroup.photos.length - 1
+                      : modalGroup.currentIndex - 1,
+                  );
+                }}
+                className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
+                title="Previous Evidence"
+                aria-label="Previous evidence"
+              >
+                <ChevronLeft className="w-7 h-7" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleModalNavigate(
+                    modalGroup.currentIndex === modalGroup.photos.length - 1
+                      ? 0
+                      : modalGroup.currentIndex + 1,
+                  );
+                }}
+                className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
+                title="Next Evidence"
+                aria-label="Next evidence"
+              >
+                <ChevronRight className="w-7 h-7" />
+              </button>
+            </>
+          )}
 
           {/* Modal Footer Caption */}
           {currentModalPhoto && (

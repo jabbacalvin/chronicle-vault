@@ -20,6 +20,7 @@ export default function App() {
   const [configData, setConfigData] = useState({
     overrides: {},
     virtualEntries: [],
+    groups: [],
   });
   const [configFileId, setConfigFileId] = useState(null);
 
@@ -38,7 +39,11 @@ export default function App() {
         const result = await loadDriveData(config.accessToken, config.folderId);
         setImages(result.items || []);
         setConfigData(
-          result.configData || { overrides: {}, virtualEntries: [] },
+          result.configData || {
+            overrides: {},
+            virtualEntries: [],
+            groups: [],
+          },
         );
         setConfigFileId(result.configFileId);
       } catch (err) {
@@ -58,39 +63,68 @@ export default function App() {
     setShowSetup(false);
   };
 
-  // Updated handleSaveEdit: Only persists overrides for items that actually changed
   const handleSaveEdit = async (updatedItems) => {
     if (!config) return;
 
     try {
       const newOverrides = { ...(configData.overrides || {}) };
 
-      // Map existing items for quick lookup of original baseline timestamps
-      const originalItemsMap = new Map(
-        images.map((img) => [img.id, img.timestamp]),
-      );
+      // Persist group membership on each member image's stable Drive ID.
+      const groups = updatedItems
+        .filter((item) => item.type === "event_group")
+        .map((group) => ({
+          id: group.id,
+          title: group.title,
+          note: group.note || group.memo || "",
+          memo: group.memo || group.note || "",
+          customDate: new Date(group.timestamp).toISOString(),
+          photoIds: [...new Set(group.photoIds || [])],
+        }));
+
+      const groupByPhotoId = new Map();
+      groups.forEach((group) => {
+        group.photoIds.forEach((photoId) => {
+          groupByPhotoId.set(photoId, group.id);
+        });
+      });
+
+      const originalItemsMap = new Map(images.map((img) => [img.id, img]));
 
       updatedItems.forEach((item) => {
-        // Skip virtual entries for drive image overrides
-        if (item.id.startsWith("virtual-")) return;
+        if (item.type === "event_group" || item.id.startsWith("virtual-"))
+          return;
 
-        const originalTimestamp = originalItemsMap.get(item.id);
-        const newTimestamp = new Date(item.timestamp).getTime();
+        const original = originalItemsMap.get(item.id);
+        if (!original) return;
 
-        // Check if the title or timestamp has actually been modified by the user
-        const originalTitle = images.find((img) => img.id === item.id)?.title;
-        const titleChanged = item.title !== originalTitle;
+        const titleChanged = item.title !== original.title;
         const timeChanged =
-          originalTimestamp && newTimestamp !== originalTimestamp;
+          Number(item.timestamp) !== Number(original.timestamp);
 
+        // Preserve existing title/date overrides for unchanged images. The
+        // loaded values already include those overrides, so deleting them here
+        // would silently reset them during an unrelated group save.
         if (titleChanged || timeChanged) {
           newOverrides[item.id] = {
             ...(newOverrides[item.id] || {}),
-            title: item.title,
-            customDate: new Date(item.timestamp).toISOString(),
+            ...(titleChanged ? { title: item.title } : {}),
+            ...(timeChanged
+              ? { customDate: new Date(item.timestamp).toISOString() }
+              : {}),
           };
+        }
+
+        const nextOverride = { ...(newOverrides[item.id] || {}) };
+        const groupId = groupByPhotoId.get(item.id);
+        if (groupId) {
+          nextOverride.groupId = groupId;
         } else {
-          // If reverted back to original, remove the override if it existed
+          delete nextOverride.groupId;
+        }
+
+        if (Object.keys(nextOverride).length > 0) {
+          newOverrides[item.id] = nextOverride;
+        } else {
           delete newOverrides[item.id];
         }
       });
@@ -98,6 +132,7 @@ export default function App() {
       const updatedConfigData = {
         ...configData,
         overrides: newOverrides,
+        groups,
       };
 
       setConfigData(updatedConfigData);

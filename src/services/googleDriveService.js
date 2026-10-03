@@ -18,7 +18,7 @@ export async function loadDriveData(accessToken, folderId) {
     const files = data.files || [];
 
     const configFile = files.find((f) => f.name === "timeline-config.json");
-    let configData = { overrides: {}, virtualEntries: [] };
+    let configData = { overrides: {}, virtualEntries: [], groups: [] };
 
     if (configFile) {
       const configRes = await fetch(
@@ -32,7 +32,12 @@ export async function loadDriveData(accessToken, folderId) {
         const text = await configRes.text();
         if (text && text.trim().length > 0) {
           try {
-            configData = JSON.parse(text);
+            configData = {
+              overrides: {},
+              virtualEntries: [],
+              groups: [],
+              ...JSON.parse(text),
+            };
           } catch (parseError) {
             console.warn(
               "Could not parse timeline-config.json, falling back to default configuration.",
@@ -118,6 +123,7 @@ export async function loadDriveData(accessToken, folderId) {
         return {
           id: file.id,
           fileId: file.id, // Explicitly exposed for authenticated binary fetching
+          groupId: override.groupId || null,
           title: override.title || file.name,
           timestamp,
           dateFormatted: d.toLocaleDateString([], {
@@ -162,8 +168,57 @@ export async function loadDriveData(accessToken, folderId) {
       };
     });
 
+    // Membership is also recorded on each photo override by Drive file ID.
+    // This lets the loader reconstruct a group's members from the same stable
+    // key used for per-photo title/date overrides.
+    const configuredGroups = Array.isArray(configData.groups)
+      ? configData.groups
+      : [];
+    const groupItems = configuredGroups.map((group) => {
+      const linkedPhotoIds = items
+        .filter((item) => item.groupId === group.id)
+        .map((item) => item.id);
+      const savedPhotoIds = Array.isArray(group.photoIds) ? group.photoIds : [];
+      const availableItemIds = new Set(
+        [...items, ...virtualItems].map((item) => item.id),
+      );
+      const savedVirtualIds = savedPhotoIds.filter((id) =>
+        virtualItems.some((item) => item.id === id),
+      );
+      const photoIds = linkedPhotoIds.length
+        ? [...new Set([...linkedPhotoIds, ...savedVirtualIds])]
+        : [...new Set(savedPhotoIds.filter((id) => availableItemIds.has(id)))];
+      const rawDate = group.customDate || group.timestamp;
+      const parsedTimestamp = rawDate
+        ? new Date(rawDate).getTime()
+        : Date.now();
+      const timestamp = Number.isFinite(parsedTimestamp)
+        ? parsedTimestamp
+        : Date.now();
+      const d = new Date(timestamp);
+
+      return {
+        id: group.id,
+        type: "event_group",
+        title: group.title || "Milestone Event",
+        note: group.note || group.memo || "",
+        memo: group.memo || group.note || "",
+        timestamp,
+        dateFormatted: d.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        timeFormatted: d.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        photoIds,
+      };
+    });
+
     return {
-      items: [...items, ...virtualItems],
+      items: [...items, ...virtualItems, ...groupItems],
       configData,
       configFileId: configFile?.id,
     };
@@ -183,6 +238,7 @@ export async function saveConfigToDrive(
     let mergedConfig = {
       overrides: {},
       virtualEntries: [],
+      groups: [],
     };
 
     // -------------------------------------------------------------------------
@@ -221,6 +277,13 @@ export async function saveConfigToDrive(
                 configData.virtualEntries !== undefined
                   ? configData.virtualEntries
                   : existingConfig.virtualEntries || [],
+
+              // A supplied group list is a full snapshot, so membership
+              // changes and deleted groups persist on the next reload.
+              groups:
+                configData.groups !== undefined
+                  ? configData.groups
+                  : existingConfig.groups || [],
             };
           } catch (parseError) {
             console.warn(
@@ -283,6 +346,7 @@ export async function saveConfigToDrive(
       },
 
       virtualEntries: configData.virtualEntries || [],
+      groups: configData.groups || [],
     };
 
     const fileContent = JSON.stringify(mergedConfig, null, 2);

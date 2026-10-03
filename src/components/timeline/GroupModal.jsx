@@ -2,18 +2,24 @@
 import React, { useState } from "react";
 import { X, Check, Layers } from "lucide-react";
 
-export default function GroupModal({ isOpen, onClose, onSave, selectedCount }) {
+export default function GroupModal({
+  isOpen,
+  onClose,
+  onSave,
+  selectedCount,
+  defaultDate = "",
+}) {
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(null);
 
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSave({ title, note, date });
+    onSave({ title, note, date: date ?? defaultDate });
     setTitle("");
     setNote("");
-    setDate("");
+    setDate(null);
   };
 
   return (
@@ -65,14 +71,18 @@ export default function GroupModal({ isOpen, onClose, onSave, selectedCount }) {
 
           <div className="flex flex-col gap-1">
             <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-              Date & Time (Optional)
+              Date & Time
             </label>
             <input
               type="datetime-local"
-              value={date}
+              value={date ?? defaultDate}
               onChange={(e) => setDate(e.target.value)}
               className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors"
             />
+            <p className="text-[10px] text-slate-500">
+              Defaults to the earliest selected image. Change it only if the
+              milestone belongs at a different time.
+            </p>
           </div>
         </div>
 
