@@ -4,6 +4,7 @@ import SetupModal from "./components/SetupModal";
 import {
   loadDriveData,
   saveConfigToDrive,
+  uploadTextNoteToDrive,
 } from "./services/googleDriveService";
 import { Settings } from "lucide-react";
 
@@ -100,17 +101,21 @@ export default function App() {
         const titleChanged = item.title !== original.title;
         const timeChanged =
           Number(item.timestamp) !== Number(original.timestamp);
+        const updatedMemo = item.memo ?? item.note ?? "";
+        const originalMemo = original.memo ?? original.note ?? "";
+        const memoChanged = updatedMemo !== originalMemo;
 
         // Preserve existing title/date overrides for unchanged images. The
         // loaded values already include those overrides, so deleting them here
         // would silently reset them during an unrelated group save.
-        if (titleChanged || timeChanged) {
+        if (titleChanged || timeChanged || memoChanged) {
           newOverrides[item.id] = {
             ...(newOverrides[item.id] || {}),
             ...(titleChanged ? { title: item.title } : {}),
             ...(timeChanged
               ? { customDate: new Date(item.timestamp).toISOString() }
               : {}),
+            ...(memoChanged ? { memo: updatedMemo } : {}),
           };
         }
 
@@ -149,6 +154,18 @@ export default function App() {
     }
   };
 
+  const handleAddTextNote = async (file) => {
+    if (!config) return;
+
+    await uploadTextNoteToDrive(config.accessToken, config.folderId, file);
+    const result = await loadDriveData(config.accessToken, config.folderId);
+    setImages(result.items || []);
+    setConfigData(
+      result.configData || { overrides: {}, virtualEntries: [], groups: [] },
+    );
+    setConfigFileId(result.configFileId);
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
       <header className="h-12 border-b border-slate-900 bg-slate-950/85 backdrop-blur px-4 flex items-center justify-between z-45 shrink-0">
@@ -178,6 +195,7 @@ export default function App() {
             error={error}
             onSaveEdit={handleSaveEdit}
             accessToken={config.accessToken}
+            onAddTextNote={handleAddTextNote}
           />
         )}
       </main>

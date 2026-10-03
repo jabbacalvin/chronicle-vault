@@ -51,6 +51,10 @@ export async function loadDriveData(accessToken, folderId) {
     const imageFiles = files.filter(
       (f) => f.mimeType && f.mimeType.startsWith("image/"),
     );
+    const textFiles = files.filter(
+      (f) =>
+        f.name?.toLowerCase().endsWith(".txt") || f.mimeType === "text/plain",
+    );
 
     // Process each image file asynchronously to extract robust EXIF data
     const items = await Promise.all(
@@ -125,6 +129,8 @@ export async function loadDriveData(accessToken, folderId) {
           fileId: file.id, // Explicitly exposed for authenticated binary fetching
           groupId: override.groupId || null,
           title: override.title || file.name,
+          memo: override.memo ?? override.note ?? "",
+          note: override.memo ?? override.note ?? "",
           timestamp,
           dateFormatted: d.toLocaleDateString([], {
             month: "short",
@@ -139,6 +145,56 @@ export async function loadDriveData(accessToken, folderId) {
           latitude,
           longitude,
           hasGps: !!(latitude && longitude),
+        };
+      }),
+    );
+
+    const textItems = await Promise.all(
+      textFiles.map(async (file) => {
+        const override = configData.overrides?.[file.id] || {};
+        let fileText = "";
+
+        try {
+          const textRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          );
+          if (!textRes.ok) {
+            throw new Error(`Failed to fetch note: ${textRes.status}`);
+          }
+          fileText = await textRes.text();
+        } catch (textErr) {
+          console.warn(`Could not read text note ${file.name}:`, textErr);
+        }
+
+        const timestamp = override.customDate
+          ? new Date(override.customDate).getTime()
+          : new Date(file.createdTime).getTime();
+        const d = new Date(timestamp);
+        const memo = override.memo ?? override.note ?? fileText;
+
+        return {
+          id: file.id,
+          fileId: file.id,
+          type: "text_note",
+          mimeType: "text/plain",
+          groupId: override.groupId || null,
+          title: override.title || file.name.replace(/\.txt$/i, ""),
+          memo,
+          note: memo,
+          noteContent: memo,
+          timestamp,
+          dateFormatted: d.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          timeFormatted: d.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          imageUrl: null,
+          hasGps: false,
         };
       }),
     );
@@ -175,12 +231,13 @@ export async function loadDriveData(accessToken, folderId) {
       ? configData.groups
       : [];
     const groupItems = configuredGroups.map((group) => {
-      const linkedPhotoIds = items
+      const timelineFileItems = [...items, ...textItems];
+      const linkedPhotoIds = timelineFileItems
         .filter((item) => item.groupId === group.id)
         .map((item) => item.id);
       const savedPhotoIds = Array.isArray(group.photoIds) ? group.photoIds : [];
       const availableItemIds = new Set(
-        [...items, ...virtualItems].map((item) => item.id),
+        [...timelineFileItems, ...virtualItems].map((item) => item.id),
       );
       const savedVirtualIds = savedPhotoIds.filter((id) =>
         virtualItems.some((item) => item.id === id),
@@ -218,7 +275,7 @@ export async function loadDriveData(accessToken, folderId) {
     });
 
     return {
-      items: [...items, ...virtualItems, ...groupItems],
+      items: [...items, ...textItems, ...virtualItems, ...groupItems],
       configData,
       configFileId: configFile?.id,
     };
@@ -395,4 +452,38 @@ export async function saveConfigToDrive(
     console.error("Error saving config to Drive:", err);
     throw err;
   }
+}
+
+export async function uploadTextNoteToDrive(accessToken, folderId, file) {
+  if (!file || !file.name?.toLowerCase().endsWith(".txt")) {
+    throw new Error("Choose a .txt file to add a timeline note.");
+  }
+
+  const content = await file.text();
+  const metadata = {
+    name: file.name,
+    mimeType: "text/plain",
+    parents: [folderId],
+  };
+  const form = new FormData();
+  form.append(
+    "metadata",
+    new Blob([JSON.stringify(metadata)], { type: "application/json" }),
+  );
+  form.append("file", new Blob([content], { type: "text/plain" }), file.name);
+
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,createdTime",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload text note: ${response.statusText}`);
+  }
+
+  return response.json();
 }

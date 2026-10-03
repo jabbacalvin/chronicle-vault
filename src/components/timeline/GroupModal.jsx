@@ -41,7 +41,7 @@ export default function GroupModal({
         <div className="p-4 flex flex-col gap-3">
           <p className="text-xs text-slate-400 mb-1">
             Grouping <strong className="text-amber-500">{selectedCount}</strong>{" "}
-            photos into a single timeline event.
+            items into a single timeline event.
           </p>
 
           <div className="flex flex-col gap-1">
@@ -80,8 +80,9 @@ export default function GroupModal({
               className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors"
             />
             <p className="text-[10px] text-slate-500">
-              Defaults to the earliest selected image. Change it only if the
-              milestone belongs at a different time.
+              Defaults to the earliest selected image. For note-only groups, it
+              uses the earliest selected note. Change it if the milestone
+              belongs at a different time.
             </p>
           </div>
         </div>

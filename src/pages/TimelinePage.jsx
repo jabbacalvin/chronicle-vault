@@ -11,6 +11,8 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
@@ -32,6 +34,7 @@ export default function TimelinePage({
   error,
   onSaveEdit,
   accessToken,
+  onAddTextNote,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
@@ -42,6 +45,8 @@ export default function TimelinePage({
 
   // Individual item loading state for card buttons
   const [loadingItemId, setLoadingItemId] = useState(null);
+  const [isUploadingNote, setIsUploadingNote] = useState(false);
+  const noteFileInputRef = useRef(null);
 
   const [items, setItems] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -186,10 +191,25 @@ export default function TimelinePage({
         ),
     [items, selectedIds],
   );
-  const firstSelectedImage = selectedImages[0] || null;
+  const firstSelectedImage =
+    selectedImages.find(
+      (item) =>
+        item.type !== "text_note" &&
+        item.type !== "event_group" &&
+        !String(item.id).startsWith("virtual-"),
+    ) || null;
+  const firstSelectedTimelineItem =
+    selectedImages.find((item) => !String(item.id).startsWith("virtual-")) ||
+    selectedImages[0] ||
+    null;
+  const groupAnchorItem = firstSelectedImage || firstSelectedTimelineItem;
+  const groupDefaultTimestamp =
+    firstSelectedImage?.timestamp ?? firstSelectedTimelineItem?.timestamp;
   const firstImageDateTime = firstSelectedImage
     ? toDateTimeLocalValue(firstSelectedImage.timestamp)
-    : "";
+    : firstSelectedTimelineItem
+      ? toDateTimeLocalValue(firstSelectedTimelineItem.timestamp)
+      : "";
 
   // ---------------------------------------------------------------------------
   // Create and track blob URLs
@@ -405,6 +425,13 @@ export default function TimelinePage({
       groupTitle: item.title,
     });
 
+    if (photosToView[0].type === "text_note") {
+      setActiveImage(null);
+      setIsModalImageLoading(false);
+      setLoadingItemId(null);
+      return;
+    }
+
     try {
       const firstPhoto = photosToView[0];
       const thumbnailUrl = getThumbnailUrl(firstPhoto);
@@ -444,6 +471,11 @@ export default function TimelinePage({
     }));
 
     const targetPhoto = modalGroup.photos[newIndex];
+    if (targetPhoto.type === "text_note") {
+      setActiveImage(null);
+      setIsModalImageLoading(false);
+      return;
+    }
     const cacheKey = getImageCacheKey(targetPhoto);
     const cachedUrl = cacheKey
       ? resolvedImageCacheRef.current.get(cacheKey)
@@ -506,8 +538,8 @@ export default function TimelinePage({
   // ---------------------------------------------------------------------------
   const handleSaveGroup = (groupData) => {
     const photoIds = [...new Set(selectedIds)];
-    const anchorId = firstSelectedImage
-      ? String(firstSelectedImage.fileId || firstSelectedImage.id)
+    const anchorId = groupAnchorItem
+      ? String(groupAnchorItem.fileId || groupAnchorItem.id)
       : null;
 
     if (!anchorId) return;
@@ -516,7 +548,7 @@ export default function TimelinePage({
       groupData.date && groupData.date !== firstImageDateTime;
     const customTimestamp = selectedDateDiffersFromDefault
       ? new Date(groupData.date).getTime()
-      : firstSelectedImage.timestamp;
+      : groupDefaultTimestamp;
     const timestamp = Number.isFinite(customTimestamp)
       ? customTimestamp
       : Date.now();
@@ -674,9 +706,28 @@ export default function TimelinePage({
     setEditTitle(item.title || "");
     setEditMemo(item.memo || item.note || "");
 
-    setEditDate(
-      item.timestamp ? new Date(item.timestamp).toISOString().slice(0, 16) : "",
-    );
+    setEditDate(toDateTimeLocalValue(item.timestamp));
+  };
+
+  const handleTextNoteSelected = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".txt")) {
+      alert("Choose a .txt file to add a timeline note.");
+      return;
+    }
+
+    setIsUploadingNote(true);
+    try {
+      await onAddTextNote?.(file);
+    } catch (uploadError) {
+      console.error("Failed to add text note:", uploadError);
+      alert(uploadError.message || "Failed to add text note to the vault.");
+    } finally {
+      setIsUploadingNote(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -771,20 +822,39 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       {/* Top right grouping action button */}
       {/* ------------------------------------------------------------------- */}
-      <div className="absolute top-4 right-4 z-40">
-        {!isGroupingMode && displayItems.length > 0 && (
-          <button
-            onClick={() => {
-              setIsGroupingMode(true);
-              setTargetGroupId(null);
-              setSelectedIds([]);
-              setSelectionAnchorId(null);
-            }}
-            className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            Group Photos
-          </button>
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
+        {!isGroupingMode && (
+          <>
+            <input
+              ref={noteFileInputRef}
+              type="file"
+              accept=".txt,text/plain"
+              className="hidden"
+              onChange={handleTextNoteSelected}
+            />
+            <button
+              onClick={() => noteFileInputRef.current?.click()}
+              disabled={isUploadingNote}
+              className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {isUploadingNote ? "Adding Evidence..." : "Add .txt Evidence"}
+            </button>
+            {displayItems.length > 0 && (
+              <button
+                onClick={() => {
+                  setIsGroupingMode(true);
+                  setTargetGroupId(null);
+                  setSelectedIds([]);
+                  setSelectionAnchorId(null);
+                }}
+                className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Group Evidences
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -911,7 +981,9 @@ export default function TimelinePage({
                         <span className="text-[10px] font-mono text-amber-400 font-medium truncate max-w-[80px]">
                           {isGroup
                             ? `GROUP (${photoCount})`
-                            : `EX ${item.id.slice(0, 4).toUpperCase()}`}
+                            : item.type === "text_note"
+                              ? "TEXT NOTE"
+                              : `EX ${item.id.slice(0, 4).toUpperCase()}`}
                         </span>
 
                         <div className="flex items-center gap-1">
@@ -991,8 +1063,12 @@ export default function TimelinePage({
                           </h3>
 
                           {(item.memo || item.note) && (
-                            <p className="text-[10px] text-slate-300 italic my-1 line-clamp-2 bg-slate-950/50 p-1.5 rounded border border-slate-800/80">
-                              "{item.memo || item.note}"
+                            <p
+                              className={`text-[10px] text-slate-300 my-1 line-clamp-2 bg-slate-950/50 p-1.5 rounded border border-slate-800/80 ${item.type === "text_note" ? "whitespace-pre-wrap" : "italic"}`}
+                            >
+                              {item.type === "text_note"
+                                ? item.memo || item.note
+                                : `"${item.memo || item.note}"`}
                             </p>
                           )}
 
@@ -1013,13 +1089,19 @@ export default function TimelinePage({
                             disabled={isThisLoading}
                             className="w-full py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                           >
-                            <ImageIcon className="w-3.5 h-3.5" />
+                            {item.type === "text_note" ? (
+                              <FileText className="w-3.5 h-3.5" />
+                            ) : (
+                              <ImageIcon className="w-3.5 h-3.5" />
+                            )}
 
                             {isThisLoading
                               ? "Loading..."
                               : isGroup
-                                ? `View Evidences (${photoCount})`
-                                : "View Evidence"}
+                                ? `View Items (${photoCount})`
+                                : item.type === "text_note"
+                                  ? "Read Note"
+                                  : "View Evidence"}
                           </button>
 
                           {/* Location Data Button */}
@@ -1056,7 +1138,7 @@ export default function TimelinePage({
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-sm font-medium text-slate-200">
-              {selectedIds.length} photos selected
+              {selectedIds.length} items selected
             </span>
 
             {targetGroupId && (
@@ -1185,6 +1267,12 @@ export default function TimelinePage({
                   Loading evidence...
                 </span>
               </div>
+            ) : currentModalPhoto?.type === "text_note" ? (
+              <article className="w-full max-w-3xl max-h-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl whitespace-pre-wrap break-words">
+                {currentModalPhoto.noteContent ||
+                  currentModalPhoto.memo ||
+                  "(Empty note)"}
+              </article>
             ) : activeImage ? (
               <img
                 src={activeImage}
