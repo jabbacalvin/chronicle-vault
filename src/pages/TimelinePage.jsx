@@ -1244,15 +1244,19 @@ export default function TimelinePage({
                   </button>
                 )}
             </div>
-
-            <button
-              onClick={handleCloseModal}
-              className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-amber-500 flex items-center justify-center transition cursor-pointer"
-              title="Close Viewer"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
+
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              handleCloseModal();
+            }}
+            className="absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-slate-900/95 border border-slate-700 text-slate-300 hover:text-white hover:border-amber-500 flex items-center justify-center transition cursor-pointer shadow-xl"
+            title="Close Viewer"
+            aria-label="Close viewer"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           {/* Modal Image Display */}
           <div
