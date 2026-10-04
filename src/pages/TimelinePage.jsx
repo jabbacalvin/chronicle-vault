@@ -9,8 +9,6 @@ import {
   X,
   Layers,
   CheckSquare,
-  ChevronLeft,
-  ChevronRight,
   FileText,
 } from "lucide-react";
 import { heicTo } from "heic-to";
