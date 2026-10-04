@@ -35,6 +35,7 @@ export default function TimelinePage({
   onSaveEdit,
   accessToken,
   onAddTextNote,
+  onUpdateTextNote,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
@@ -58,6 +59,7 @@ export default function TimelinePage({
   const [selectedIds, setSelectedIds] = useState([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showTextNoteModal, setShowTextNoteModal] = useState(false);
+  const [textNoteBeingEdited, setTextNoteBeingEdited] = useState(null);
 
   // Existing group selected as the destination for additional photos
   const [targetGroupId, setTargetGroupId] = useState(null);
@@ -709,14 +711,28 @@ export default function TimelinePage({
     setEditDate(toDateTimeLocalValue(item.timestamp));
   };
 
-  const handleCreateTextNote = async (noteData) => {
+  const closeTextNoteModal = () => {
+    if (isUploadingNote) return;
+    setShowTextNoteModal(false);
+    setTextNoteBeingEdited(null);
+  };
+
+  const handleSaveTextNote = async (noteData) => {
     setIsUploadingNote(true);
     try {
-      await onAddTextNote?.(noteData);
+      if (textNoteBeingEdited) {
+        await onUpdateTextNote?.(textNoteBeingEdited.id, noteData);
+      } else {
+        await onAddTextNote?.(noteData);
+      }
       setShowTextNoteModal(false);
+      setTextNoteBeingEdited(null);
     } catch (noteError) {
-      console.error("Failed to save text note:", noteError);
-      alert(noteError.message || "Failed to save the note to Google Drive.");
+      console.error("Failed to save text evidence:", noteError);
+      alert(
+        noteError.message ||
+          "Failed to save the text evidence to Google Drive.",
+      );
     } finally {
       setIsUploadingNote(false);
     }
@@ -818,7 +834,10 @@ export default function TimelinePage({
         {!isGroupingMode && (
           <>
             <button
-              onClick={() => setShowTextNoteModal(true)}
+              onClick={() => {
+                setTextNoteBeingEdited(null);
+                setShowTextNoteModal(true);
+              }}
               disabled={isUploadingNote}
               className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer disabled:opacity-60"
             >
@@ -981,10 +1000,19 @@ export default function TimelinePage({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                startEditing(item);
+                                if (item.type === "text_note") {
+                                  setTextNoteBeingEdited(item);
+                                  setShowTextNoteModal(true);
+                                } else {
+                                  startEditing(item);
+                                }
                               }}
                               className="text-slate-400 hover:text-amber-400 transition cursor-pointer p-0.5 rounded hover:bg-slate-800"
-                              title="Edit Title, Memo, or Date"
+                              title={
+                                item.type === "text_note"
+                                  ? "Edit Text Note"
+                                  : "Edit Title, Memo, or Date"
+                              }
                             >
                               <Edit3 className="w-3 h-3" />
                             </button>
@@ -1184,8 +1212,9 @@ export default function TimelinePage({
       <TextNoteModal
         isOpen={showTextNoteModal}
         isSaving={isUploadingNote}
-        onClose={() => setShowTextNoteModal(false)}
-        onSave={handleCreateTextNote}
+        note={textNoteBeingEdited}
+        onClose={closeTextNoteModal}
+        onSave={handleSaveTextNote}
       />
 
       {/* ------------------------------------------------------------------- */}
@@ -1220,6 +1249,20 @@ export default function TimelinePage({
                 <span className="text-xs font-mono text-amber-400 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded">
                   {modalGroup.currentIndex + 1} / {modalGroup.photos.length}
                 </span>
+              )}
+
+              {currentModalPhoto?.type === "text_note" && (
+                <button
+                  onClick={() => {
+                    setTextNoteBeingEdited(currentModalPhoto);
+                    setShowTextNoteModal(true);
+                    handleCloseModal();
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded flex items-center gap-1 transition cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
+                  Edit Text
+                </button>
               )}
 
               {/* Dynamic Location Button for Current Carousel Photo */}

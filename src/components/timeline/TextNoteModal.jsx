@@ -8,18 +8,28 @@ const toLocalInputValue = (date) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
+export default function TextNoteModal({
+  isOpen,
+  isSaving,
+  note = null,
+  onClose,
+  onSave,
+}) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [incidentDate, setIncidentDate] = useState("");
 
   useEffect(() => {
     if (isOpen) {
-      setTitle("");
-      setContent("");
-      setIncidentDate(toLocalInputValue(new Date()));
+      const timestamp = note ? Number(note.timestamp) : Date.now();
+      const date = Number.isFinite(timestamp)
+        ? new Date(timestamp)
+        : new Date();
+      setTitle(note?.title || "");
+      setContent(note?.noteContent ?? note?.memo ?? note?.note ?? "");
+      setIncidentDate(toLocalInputValue(date));
     }
-  }, [isOpen]);
+  }, [isOpen, note]);
 
   if (!isOpen) return null;
 
@@ -59,7 +69,7 @@ export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
         <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <FileText className="w-4 h-4 text-cyan-400" />
-            Add Text Evidence
+            {note ? "Edit Text Evidence" : "Add Text Evidence"}
           </h2>
           <button
             type="button"
@@ -74,8 +84,9 @@ export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
 
         <div className="p-5 flex flex-col gap-4">
           <p className="text-xs text-slate-400">
-            Write a quick note. It will be saved as a .txt item in this Google
-            Drive folder and added to the timeline.
+            {note
+              ? "Update the text and details for this note. The existing .txt file in Google Drive will be updated."
+              : "Write a quick note. It will be saved as a .txt item in this Google Drive folder and added to the timeline."}
           </p>
 
           <label className="flex flex-col gap-1.5">
@@ -111,7 +122,7 @@ export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-              Note
+              {note ? "Text file content" : "Note"}
             </span>
             <textarea
               value={content}
@@ -119,7 +130,11 @@ export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
               required
               rows={8}
               className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-cyan-400 resize-y"
-              placeholder="Enter the note to save with this incident..."
+              placeholder={
+                note
+                  ? "Edit the text saved in this .txt file..."
+                  : "Enter the note to save with this incident..."
+              }
             />
           </label>
         </div>
@@ -139,7 +154,11 @@ export default function TextNoteModal({ isOpen, isSaving, onClose, onSave }) {
             className="px-4 py-2 rounded-md text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Check className="w-4 h-4" />
-            {isSaving ? "Saving to Drive..." : "Save Note"}
+            {isSaving
+              ? "Saving to Drive..."
+              : note
+                ? "Save Changes"
+                : "Save Note"}
           </button>
         </div>
       </form>

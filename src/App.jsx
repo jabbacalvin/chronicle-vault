@@ -5,6 +5,7 @@ import {
   loadDriveData,
   saveConfigToDrive,
   createTextNoteInDrive,
+  updateTextNoteInDrive,
 } from "./services/googleDriveService";
 import { Settings } from "lucide-react";
 
@@ -192,6 +193,45 @@ export default function App() {
     setConfigFileId(result.configFileId);
   };
 
+  const handleUpdateTextNote = async (
+    noteId,
+    { title, content, timestamp },
+  ) => {
+    if (!config) return;
+
+    await updateTextNoteInDrive(config.accessToken, noteId, { title, content });
+
+    const preservedOverride = { ...(configData.overrides?.[noteId] || {}) };
+    delete preservedOverride.memo;
+    delete preservedOverride.note;
+
+    const updatedConfigData = {
+      ...configData,
+      overrides: {
+        ...(configData.overrides || {}),
+        [noteId]: {
+          ...preservedOverride,
+          title,
+          customDate: new Date(timestamp).toISOString(),
+        },
+      },
+    };
+    const savedConfigData = await saveConfigToDrive(
+      config.accessToken,
+      config.folderId,
+      configFileId,
+      updatedConfigData,
+    );
+
+    setConfigData(savedConfigData || updatedConfigData);
+    const result = await loadDriveData(config.accessToken, config.folderId);
+    setImages(result.items || []);
+    setConfigData(
+      result.configData || { overrides: {}, virtualEntries: [], groups: [] },
+    );
+    setConfigFileId(result.configFileId);
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
       <header className="h-12 border-b border-slate-900 bg-slate-950/85 backdrop-blur px-4 flex items-center justify-between z-45 shrink-0">
@@ -222,6 +262,7 @@ export default function App() {
             onSaveEdit={handleSaveEdit}
             accessToken={config.accessToken}
             onAddTextNote={handleAddTextNote}
+            onUpdateTextNote={handleUpdateTextNote}
           />
         )}
       </main>

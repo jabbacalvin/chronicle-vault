@@ -503,3 +503,48 @@ export async function createTextNoteInDrive(
 
   return { ...(await response.json()), title: noteTitle };
 }
+
+export async function updateTextNoteInDrive(
+  accessToken,
+  fileId,
+  { title, content },
+) {
+  const noteTitle = String(title || "").trim();
+  if (!noteTitle) throw new Error("A note title could not be generated.");
+
+  const safeBaseName = noteTitle
+    .replace(/[\\/:*?"<>|\u0000-\u001F]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  const fileName = `${safeBaseName || "Incident Note"}.txt`;
+  const form = new FormData();
+  form.append(
+    "metadata",
+    new Blob([JSON.stringify({ name: fileName })], {
+      type: "application/json",
+    }),
+  );
+  form.append(
+    "file",
+    new Blob([String(content ?? "")], { type: "text/plain" }),
+    fileName,
+  );
+
+  const response = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,name,mimeType`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to update text note in Google Drive: ${response.statusText}`,
+    );
+  }
+
+  return response.json();
+}
