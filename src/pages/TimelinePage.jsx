@@ -1519,32 +1519,34 @@ export default function TimelinePage({
 
       {/* ------------------------------------------------------------------- */}
       {/* Create Group Modal */}
-      {/* --------------      <EvidenceViewerModal state={viewerState} actions={viewerActions} />
-      rentIndex === modalGroup.photos.length - 1
-                      ? 0
-                      : modalGroup.currentIndex + 1,
-                  );
-                }}
-                className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
-                title="Next Evidence"
-                aria-label="Next evidence"
-              >
-                <ChevronRight className="w-7 h-7" />
-              </button>
-            </>
-          )}
+      {/* ------------------------------------------------------------------- */}
+      <GroupModal
+        isOpen={showGroupModal}
+        selectedCount={selectedIds.length}
+        defaultDate={firstImageDateTime}
+        onClose={() => setShowGroupModal(false)}
+        onSave={handleSaveGroup}
+      />
 
-          {/* Text notes keep their title caption below the note content. */}
-          {currentModalPhoto?.type === "text_note" && (
-            <div
-              className="text-center text-xs text-slate-400 font-mono z-10 truncate max-w-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {currentModalPhoto.title || currentModalPhoto.name || ""}
-            </div>
-          )}
-        </div>
+      <TextNoteModal
+        isOpen={showTextNoteModal}
+        isSaving={isUploadingNote}
+        note={textNoteBeingEdited}
+        onClose={closeTextNoteModal}
+        onSave={handleSaveTextNote}
+      />
+
+      {/* ------------------------------------------------------------------- */}
+      {/* Map Location Modal */}
+      {/* ------------------------------------------------------------------- */}
+      {selectedMapLocation && (
+        <MapModal
+          location={selectedMapLocation}
+          onClose={() => setSelectedMapLocation(null)}
+        />
       )}
+
+      <EvidenceViewerModal state={viewerState} actions={viewerActions} />
       <AppDialog dialog={appDialog} onClose={() => setAppDialog(null)} />
     </div>
   );
