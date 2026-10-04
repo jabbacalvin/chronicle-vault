@@ -1,5 +1,16 @@
 import ExifReader from "exifreader";
 
+export function isGoogleDriveAuthorizationError(error) {
+  const status = Number(error?.status ?? error?.statusCode ?? error?.response?.status);
+  return status === 401 || /unauthorized|invalid credentials|invalid_grant|token.*expired/i.test(String(error?.message || error || ""));
+}
+
+function createDriveApiError(action, response) {
+  const error = new Error(`${action}: Google Drive API error ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`);
+  error.status = response.status;
+  return error;
+}
+
 export async function loadDriveData(accessToken, folderId) {
   try {
     const query = `'${folderId}' in parents and trashed = false`;
@@ -11,7 +22,7 @@ export async function loadDriveData(accessToken, folderId) {
     );
 
     if (!res.ok) {
-      throw new Error(`Google Drive API error: ${res.statusText}`);
+      throw createDriveApiError("Google Drive API error", res);
     }
 
     const data = await res.json();
@@ -27,6 +38,10 @@ export async function loadDriveData(accessToken, folderId) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
+
+      if (!configRes.ok) {
+        throw createDriveApiError("Could not read timeline-config.json", configRes);
+      }
 
       if (configRes.ok) {
         const text = await configRes.text();
@@ -74,6 +89,9 @@ export async function loadDriveData(accessToken, folderId) {
               headers: { Authorization: `Bearer ${accessToken}` },
             },
           );
+          if (!binaryRes.ok) {
+            throw createDriveApiError(`Could not fetch image ${file.name}`, binaryRes);
+          }
           if (binaryRes.ok) {
             const blob = await binaryRes.blob();
             const arrayBuffer = await blob.arrayBuffer();
@@ -104,6 +122,7 @@ export async function loadDriveData(accessToken, folderId) {
             }
           }
         } catch (exifErr) {
+          if (isGoogleDriveAuthorizationError(exifErr)) throw exifErr;
           console.warn(
             `Could not extract local EXIF for ${file.name}:`,
             exifErr,
@@ -160,10 +179,11 @@ export async function loadDriveData(accessToken, folderId) {
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           if (!textRes.ok) {
-            throw new Error(`Failed to fetch note: ${textRes.status}`);
+            throw createDriveApiError(`Failed to fetch note ${file.name}`, textRes);
           }
           fileText = await textRes.text();
         } catch (textErr) {
+          if (isGoogleDriveAuthorizationError(textErr)) throw textErr;
           console.warn(`Could not read text note ${file.name}:`, textErr);
         }
 
@@ -361,9 +381,7 @@ export async function saveConfigToDrive(
           };
         }
       } else {
-        throw new Error(
-          `Could not read existing config file: ${existingRes.statusText}`,
-        );
+        throw createDriveApiError("Could not read existing config file", existingRes);
       }
 
       // -----------------------------------------------------------------------
@@ -384,9 +402,7 @@ export async function saveConfigToDrive(
       );
 
       if (!updateRes.ok) {
-        throw new Error(
-          `Failed to update timeline-config.json: ${updateRes.statusText}`,
-        );
+        throw createDriveApiError("Failed to update timeline-config.json", updateRes);
       }
 
       return mergedConfig;
@@ -443,9 +459,7 @@ export async function saveConfigToDrive(
     );
 
     if (!createRes.ok) {
-      throw new Error(
-        `Failed to create timeline-config.json: ${createRes.statusText}`,
-      );
+      throw createDriveApiError("Failed to create timeline-config.json", createRes);
     }
 
     return mergedConfig;
@@ -497,9 +511,7 @@ export async function createTextNoteInDrive(
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to save note to Google Drive: ${response.statusText}`,
-    );
+    throw createDriveApiError("Failed to save note to Google Drive", response);
   }
 
   return { ...(await response.json()), title: noteTitle };
@@ -542,9 +554,7 @@ export async function updateTextNoteInDrive(
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to update text note in Google Drive: ${response.statusText}`,
-    );
+    throw createDriveApiError("Failed to update text note in Google Drive", response);
   }
 
   return response.json();
