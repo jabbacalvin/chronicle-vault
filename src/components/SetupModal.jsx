@@ -42,6 +42,7 @@ export default function SetupModal({ onSave }) {
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: "https://www.googleapis.com/auth/drive",
+      prompt: "",
       callback: (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
           const config = {

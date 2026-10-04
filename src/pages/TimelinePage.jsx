@@ -54,6 +54,19 @@ export default function TimelinePage({
   const [editMemo, setEditMemo] = useState("");
   const [editDate, setEditDate] = useState("");
 
+  // Separate edit state for the evidence viewer panel.
+  const [isEditingModalDetails, setIsEditingModalDetails] = useState(false);
+  const [isSavingModalDetails, setIsSavingModalDetails] = useState(false);
+  const [modalEditTitle, setModalEditTitle] = useState("");
+  const [modalEditMemo, setModalEditMemo] = useState("");
+  const [modalEditDate, setModalEditDate] = useState("");
+  const [modalEditError, setModalEditError] = useState("");
+  const [isEditingModalGroup, setIsEditingModalGroup] = useState(false);
+  const [isSavingModalGroup, setIsSavingModalGroup] = useState(false);
+  const [modalGroupEditTitle, setModalGroupEditTitle] = useState("");
+  const [modalGroupEditMemo, setModalGroupEditMemo] = useState("");
+  const [modalGroupEditError, setModalGroupEditError] = useState("");
+
   // Grouping state
   const [isGroupingMode, setIsGroupingMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -421,10 +434,14 @@ export default function TimelinePage({
       return;
     }
 
+    const isEventGroup = item.type === "event_group";
     setModalGroup({
       photos: photosToView,
       currentIndex: 0,
+      groupId: isEventGroup ? item.id : null,
       groupTitle: item.title,
+      groupMemo: isEventGroup ? item.memo || item.note || "" : "",
+      isEventGroup,
     });
 
     if (photosToView[0].type === "text_note") {
@@ -505,6 +522,142 @@ export default function TimelinePage({
   const handleCloseModal = () => {
     setModalGroup(null);
     setActiveImage(null);
+    setIsEditingModalDetails(false);
+    setModalEditError("");
+    setIsEditingModalGroup(false);
+    setModalGroupEditError("");
+  };
+
+  const handleStartEditingModalDetails = () => {
+    const photo = modalGroup?.photos?.[modalGroup.currentIndex];
+    if (!photo || photo.type === "text_note") return;
+
+    setModalEditTitle(photo.title || photo.name || "");
+    setModalEditMemo(photo.memo || photo.note || "");
+    setModalEditDate(toDateTimeLocalValue(photo.timestamp));
+    setModalEditError("");
+    setIsEditingModalDetails(true);
+  };
+
+  const handleStartEditingModalGroup = () => {
+    if (!modalGroup?.isEventGroup) return;
+
+    setModalGroupEditTitle(modalGroup.groupTitle || "");
+    setModalGroupEditMemo(modalGroup.groupMemo || "");
+    setModalGroupEditError("");
+    setIsEditingModalGroup(true);
+  };
+
+  const handleCancelEditingModalGroup = () => {
+    setIsEditingModalGroup(false);
+    setModalGroupEditError("");
+  };
+
+  const handleSaveModalGroup = async (event) => {
+    event.preventDefault();
+
+    const group = items.find(
+      (item) => item.id === modalGroup?.groupId && item.type === "event_group",
+    );
+    if (!group) {
+      setModalGroupEditError("This group could not be found.");
+      return;
+    }
+
+    const updatedGroup = {
+      ...group,
+      title: modalGroupEditTitle.trim() || group.title || "Untitled Group",
+      memo: modalGroupEditMemo,
+      note: modalGroupEditMemo,
+      updatedRecently: true,
+    };
+    const updatedItems = items.map((item) =>
+      item.id === group.id ? updatedGroup : item,
+    );
+
+    setIsSavingModalGroup(true);
+    setModalGroupEditError("");
+    setItems(updatedItems);
+    setModalGroup((previous) =>
+      previous
+        ? {
+            ...previous,
+            groupTitle: updatedGroup.title,
+            groupMemo: updatedGroup.memo,
+          }
+        : previous,
+    );
+
+    try {
+      await onSaveEdit?.(updatedItems);
+      setIsEditingModalGroup(false);
+    } catch (saveError) {
+      console.error("Failed to save group details:", saveError);
+      setModalGroupEditError("Could not save these changes. Please try again.");
+    } finally {
+      setIsSavingModalGroup(false);
+    }
+  };
+
+  const handleSaveModalDetails = async (event) => {
+    event.preventDefault();
+
+    const photo = modalGroup?.photos?.[modalGroup.currentIndex];
+    if (!photo) return;
+
+    const timestamp = modalEditDate
+      ? new Date(modalEditDate).getTime()
+      : Number(photo.timestamp);
+    if (!Number.isFinite(timestamp)) {
+      setModalEditError("Enter a valid date and time.");
+      return;
+    }
+
+    const date = new Date(timestamp);
+    const updatedPhoto = {
+      ...photo,
+      title: modalEditTitle.trim() || photo.title || photo.name,
+      memo: modalEditMemo,
+      note: modalEditMemo,
+      timestamp,
+      dateFormatted: date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+      timeFormatted: date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      updatedRecently: true,
+    };
+    const updatedItems = items
+      .map((item) => (item.id === photo.id ? updatedPhoto : item))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    setIsSavingModalDetails(true);
+    setModalEditError("");
+    setItems(updatedItems);
+    setModalGroup((previous) =>
+      previous
+        ? {
+            ...previous,
+            photos: previous.photos.map((item) =>
+              item.id === photo.id ? updatedPhoto : item,
+            ),
+          }
+        : previous,
+    );
+
+    try {
+      await onSaveEdit?.(updatedItems);
+      setIsEditingModalDetails(false);
+    } catch (saveError) {
+      console.error("Failed to save evidence details:", saveError);
+      setModalEditError("Could not save these changes. Please try again.");
+    } finally {
+      setIsSavingModalDetails(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -1330,31 +1483,212 @@ export default function TimelinePage({
             </div>
 
             {currentModalPhoto && currentModalPhoto.type !== "text_note" && (
-              <aside className="w-full lg:w-80 xl:w-96 h-fit self-center shrink-0 rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
-                <h2 className="text-sm font-semibold text-slate-100 break-words">
-                  {currentModalPhoto.title ||
-                    currentModalPhoto.name ||
-                    "Untitled Evidence"}
-                </h2>
-                <div className="mt-4 border-t border-slate-700 pt-4">
-                  <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                    Memo
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
-                    {currentModalMemo || (
-                      <span className="text-slate-500 italic">
-                        No memo added.
-                      </span>
+              <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
+                {modalGroup.isEventGroup && (
+                  <section className="mb-4 border-b border-slate-700 pb-4">
+                    {isEditingModalGroup ? (
+                      <form
+                        onSubmit={handleSaveModalGroup}
+                        className="flex flex-col gap-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <h2 className="text-sm font-semibold text-slate-100">
+                            Edit Group
+                          </h2>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditingModalGroup}
+                            disabled={isSavingModalGroup}
+                            className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                          Group Title
+                          <input
+                            type="text"
+                            value={modalGroupEditTitle}
+                            onChange={(event) =>
+                              setModalGroupEditTitle(event.target.value)
+                            }
+                            className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                          Group Memo
+                          <textarea
+                            rows={3}
+                            value={modalGroupEditMemo}
+                            onChange={(event) =>
+                              setModalGroupEditMemo(event.target.value)
+                            }
+                            className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
+                          />
+                        </label>
+                        {modalGroupEditError && (
+                          <p className="text-xs text-rose-300">
+                            {modalGroupEditError}
+                          </p>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={isSavingModalGroup}
+                          className="w-full rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-semibold px-3 py-2 transition disabled:opacity-60"
+                        >
+                          {isSavingModalGroup ? "Saving..." : "Save Group"}
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                              Group
+                            </p>
+                            <h2 className="mt-1 text-sm font-semibold text-slate-100 break-words">
+                              {modalGroup.groupTitle || "Untitled Group"}
+                            </h2>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleStartEditingModalGroup}
+                            className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
+                            title="Edit group title and memo"
+                            aria-label="Edit group title and memo"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                          <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                            Group Memo
+                          </h3>
+                          <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
+                            {String(modalGroup.groupMemo || "").trim() || (
+                              <span className="text-slate-500 italic">
+                                No group memo added.
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </>
                     )}
-                  </p>
-                </div>
+                  </section>
+                )}
+                {isEditingModalDetails ? (
+                  <form
+                    onSubmit={handleSaveModalDetails}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold text-slate-100">
+                        Edit Evidence
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingModalDetails(false);
+                          setModalEditError("");
+                        }}
+                        disabled={isSavingModalDetails}
+                        className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                      Title
+                      <input
+                        type="text"
+                        value={modalEditTitle}
+                        onChange={(event) =>
+                          setModalEditTitle(event.target.value)
+                        }
+                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                      Date &amp; Time
+                      <input
+                        type="datetime-local"
+                        value={modalEditDate}
+                        onChange={(event) =>
+                          setModalEditDate(event.target.value)
+                        }
+                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                      Memo
+                      <textarea
+                        rows={3}
+                        value={modalEditMemo}
+                        onChange={(event) =>
+                          setModalEditMemo(event.target.value)
+                        }
+                        className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
+                      />
+                    </label>
+
+                    {modalEditError && (
+                      <p className="text-xs text-rose-300">{modalEditError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isSavingModalDetails}
+                      className="w-full rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-semibold px-3 py-2 transition disabled:opacity-60"
+                    >
+                      {isSavingModalDetails ? "Saving..." : "Save Changes"}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-sm font-semibold text-slate-100 break-words">
+                        {currentModalPhoto.title ||
+                          currentModalPhoto.name ||
+                          "Untitled Evidence"}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={handleStartEditingModalDetails}
+                        className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
+                        title="Edit title, date, time, and memo"
+                        aria-label="Edit evidence details"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {currentModalPhoto.dateFormatted} ·{" "}
+                      {currentModalPhoto.timeFormatted}
+                    </p>
+                    <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                      <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                        Photo Memo
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
+                        {currentModalMemo || (
+                          <span className="text-slate-500 italic">
+                            No memo added.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </>
+                )}
               </aside>
             )}
           </div>
 
           {/* Keep navigation controls at the viewport edges, independent of
               the centered image's width. */}
-          {modalGroup.photos.length > 1 && (
+          {modalGroup.photos.length > 1 && !isEditingModalDetails && (
             <>
               <button
                 type="button"
