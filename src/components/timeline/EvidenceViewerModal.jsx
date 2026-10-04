@@ -18,6 +18,7 @@ export default function EvidenceViewerModal({ state, actions }) {
     isSavingModalGroup,
     modalGroupEditTitle,
     modalGroupEditMemo,
+    modalGroupEditDate,
     modalGroupEditError,
     isSavingModalDetails,
     modalEditTitle,
@@ -36,6 +37,7 @@ export default function EvidenceViewerModal({ state, actions }) {
     handleCancelEditingModalGroup,
     setModalGroupEditTitle,
     setModalGroupEditMemo,
+    setModalGroupEditDate,
     handleStartEditingModalGroup,
     handleSaveModalDetails,
     setIsEditingModalDetails,
@@ -203,6 +205,17 @@ export default function EvidenceViewerModal({ state, actions }) {
                           />
                         </label>
                         <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                          Group Date &amp; Time
+                          <input
+                            type="datetime-local"
+                            value={modalGroupEditDate}
+                            onChange={(event) =>
+                              setModalGroupEditDate(event.target.value)
+                            }
+                            className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Memo
                           <textarea
                             rows={3}
@@ -236,13 +249,18 @@ export default function EvidenceViewerModal({ state, actions }) {
                             <h2 className="mt-1 text-sm font-semibold text-slate-100 break-words">
                               {modalGroup.groupTitle || "Untitled Group"}
                             </h2>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {modalGroup.groupDateFormatted || "Date unavailable"}
+                              {" · "}
+                              {modalGroup.groupTimeFormatted || "Time unavailable"}
+                            </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleStartEditingModalGroup}
                             className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
-                            title="Edit group title and memo"
-                            aria-label="Edit group title and memo"
+                            title="Edit group title, date, time, and memo"
+                            aria-label="Edit group title, date, time, and memo"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
