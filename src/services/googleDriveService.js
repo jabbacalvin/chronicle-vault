@@ -235,13 +235,8 @@ export async function loadDriveData(accessToken, folderId) {
       const linkedFileIds = timelineFileItems
         .filter((item) => item.groupId === group.id)
         .map((item) => item.id);
-      // Read photoIds for existing configs, but expose and save fileIds going
-      // forward so groups can contain notes and other Drive file types.
-      const savedFileIds = Array.isArray(group.fileIds)
-        ? group.fileIds
-        : Array.isArray(group.photoIds)
-          ? group.photoIds
-          : [];
+      // Group membership uses Drive file IDs for all supported file types.
+      const savedFileIds = Array.isArray(group.fileIds) ? group.fileIds : [];
       const availableFileIds = new Set(
         [...timelineFileItems, ...virtualItems].map((item) => item.id),
       );
