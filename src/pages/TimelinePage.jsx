@@ -68,6 +68,7 @@ export default function TimelinePage({
   const [isSavingModalGroup, setIsSavingModalGroup] = useState(false);
   const [modalGroupEditTitle, setModalGroupEditTitle] = useState("");
   const [modalGroupEditMemo, setModalGroupEditMemo] = useState("");
+  const [modalGroupEditDate, setModalGroupEditDate] = useState("");
   const [modalGroupEditError, setModalGroupEditError] = useState("");
 
   // Grouping state
@@ -448,6 +449,9 @@ export default function TimelinePage({
       groupId: isEventGroup ? item.id : null,
       groupTitle: item.title,
       groupMemo: isEventGroup ? item.memo || item.note || "" : "",
+      groupTimestamp: isEventGroup ? item.timestamp : null,
+      groupDateFormatted: isEventGroup ? item.dateFormatted : "",
+      groupTimeFormatted: isEventGroup ? item.timeFormatted : "",
       isEventGroup,
     });
 
@@ -555,6 +559,9 @@ export default function TimelinePage({
 
     setModalGroupEditTitle(modalGroup.groupTitle || "");
     setModalGroupEditMemo(modalGroup.groupMemo || "");
+    setModalGroupEditDate(
+      toDateTimeLocalValue(modalGroup.groupTimestamp),
+    );
     setModalGroupEditError("");
     setIsEditingModalGroup(true);
   };
@@ -575,11 +582,30 @@ export default function TimelinePage({
       return;
     }
 
+    const updatedTimestamp = modalGroupEditDate
+      ? new Date(modalGroupEditDate).getTime()
+      : Number(group.timestamp);
+    if (!Number.isFinite(updatedTimestamp)) {
+      setModalGroupEditError("Enter a valid group date and time.");
+      return;
+    }
+
+    const updatedDate = new Date(updatedTimestamp);
     const updatedGroup = {
       ...group,
       title: modalGroupEditTitle.trim() || group.title || "Untitled Group",
       memo: modalGroupEditMemo,
       note: modalGroupEditMemo,
+      timestamp: updatedTimestamp,
+      dateFormatted: updatedDate.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+      timeFormatted: updatedDate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
       updatedRecently: true,
     };
     const updatedItems = items.map((item) =>
@@ -595,6 +621,9 @@ export default function TimelinePage({
             ...previous,
             groupTitle: updatedGroup.title,
             groupMemo: updatedGroup.memo,
+            groupTimestamp: updatedGroup.timestamp,
+            groupDateFormatted: updatedGroup.dateFormatted,
+            groupTimeFormatted: updatedGroup.timeFormatted,
           }
         : previous,
     );
@@ -1099,6 +1128,7 @@ export default function TimelinePage({
     isSavingModalGroup,
     modalGroupEditTitle,
     modalGroupEditMemo,
+    modalGroupEditDate,
     modalGroupEditError,
     isSavingModalDetails,
     modalEditTitle,
@@ -1117,6 +1147,7 @@ export default function TimelinePage({
     handleCancelEditingModalGroup,
     setModalGroupEditTitle,
     setModalGroupEditMemo,
+    setModalGroupEditDate,
     handleStartEditingModalGroup,
     handleSaveModalDetails,
     setIsEditingModalDetails,
