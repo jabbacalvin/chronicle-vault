@@ -12,11 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Upload,
 } from "lucide-react";
 import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
 import GroupModal from "../components/timeline/GroupModal";
+import TextNoteModal from "../components/timeline/TextNoteModal";
 
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
@@ -46,7 +46,6 @@ export default function TimelinePage({
   // Individual item loading state for card buttons
   const [loadingItemId, setLoadingItemId] = useState(null);
   const [isUploadingNote, setIsUploadingNote] = useState(false);
-  const noteFileInputRef = useRef(null);
 
   const [items, setItems] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -58,6 +57,7 @@ export default function TimelinePage({
   const [isGroupingMode, setIsGroupingMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showTextNoteModal, setShowTextNoteModal] = useState(false);
 
   // Existing group selected as the destination for additional photos
   const [targetGroupId, setTargetGroupId] = useState(null);
@@ -709,22 +709,14 @@ export default function TimelinePage({
     setEditDate(toDateTimeLocalValue(item.timestamp));
   };
 
-  const handleTextNoteSelected = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".txt")) {
-      alert("Choose a .txt file to add a timeline note.");
-      return;
-    }
-
+  const handleCreateTextNote = async (noteData) => {
     setIsUploadingNote(true);
     try {
-      await onAddTextNote?.(file);
-    } catch (uploadError) {
-      console.error("Failed to add text note:", uploadError);
-      alert(uploadError.message || "Failed to add text note to the vault.");
+      await onAddTextNote?.(noteData);
+      setShowTextNoteModal(false);
+    } catch (noteError) {
+      console.error("Failed to save text note:", noteError);
+      alert(noteError.message || "Failed to save the note to Google Drive.");
     } finally {
       setIsUploadingNote(false);
     }
@@ -825,20 +817,13 @@ export default function TimelinePage({
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
         {!isGroupingMode && (
           <>
-            <input
-              ref={noteFileInputRef}
-              type="file"
-              accept=".txt,text/plain"
-              className="hidden"
-              onChange={handleTextNoteSelected}
-            />
             <button
-              onClick={() => noteFileInputRef.current?.click()}
+              onClick={() => setShowTextNoteModal(true)}
               disabled={isUploadingNote}
               className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer disabled:opacity-60"
             >
-              <Upload className="w-3.5 h-3.5" />
-              {isUploadingNote ? "Adding Evidence..." : "Add .txt Evidence"}
+              <FileText className="w-3.5 h-3.5" />
+              {isUploadingNote ? "Saving Note..." : "Add .txt Evidence"}
             </button>
             {displayItems.length > 0 && (
               <button
@@ -1194,6 +1179,13 @@ export default function TimelinePage({
         defaultDate={firstImageDateTime}
         onClose={() => setShowGroupModal(false)}
         onSave={handleSaveGroup}
+      />
+
+      <TextNoteModal
+        isOpen={showTextNoteModal}
+        isSaving={isUploadingNote}
+        onClose={() => setShowTextNoteModal(false)}
+        onSave={handleCreateTextNote}
       />
 
       {/* ------------------------------------------------------------------- */}

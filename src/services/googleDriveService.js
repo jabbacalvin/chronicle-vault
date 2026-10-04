@@ -454,14 +454,24 @@ export async function saveConfigToDrive(
   }
 }
 
-export async function uploadTextNoteToDrive(accessToken, folderId, file) {
-  if (!file || !file.name?.toLowerCase().endsWith(".txt")) {
-    throw new Error("Choose a .txt file to add a timeline note.");
-  }
+export async function createTextNoteInDrive(
+  accessToken,
+  folderId,
+  { title, content },
+) {
+  const noteTitle = String(title || "").trim();
+  const noteContent = String(content || "");
+  if (!noteTitle) throw new Error("A note title could not be generated.");
+  if (!noteContent.trim()) throw new Error("Enter text for the note.");
 
-  const content = await file.text();
+  const safeBaseName = noteTitle
+    .replace(/[\\/:*?"<>|\u0000-\u001F]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  const fileName = `${safeBaseName || "Incident Note"}.txt`;
   const metadata = {
-    name: file.name,
+    name: fileName,
     mimeType: "text/plain",
     parents: [folderId],
   };
@@ -470,7 +480,11 @@ export async function uploadTextNoteToDrive(accessToken, folderId, file) {
     "metadata",
     new Blob([JSON.stringify(metadata)], { type: "application/json" }),
   );
-  form.append("file", new Blob([content], { type: "text/plain" }), file.name);
+  form.append(
+    "file",
+    new Blob([noteContent], { type: "text/plain" }),
+    fileName,
+  );
 
   const response = await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,createdTime",
@@ -482,8 +496,10 @@ export async function uploadTextNoteToDrive(accessToken, folderId, file) {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to upload text note: ${response.statusText}`);
+    throw new Error(
+      `Failed to save note to Google Drive: ${response.statusText}`,
+    );
   }
 
-  return response.json();
+  return { ...(await response.json()), title: noteTitle };
 }

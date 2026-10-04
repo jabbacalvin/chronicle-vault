@@ -4,7 +4,7 @@ import SetupModal from "./components/SetupModal";
 import {
   loadDriveData,
   saveConfigToDrive,
-  uploadTextNoteToDrive,
+  createTextNoteInDrive,
 } from "./services/googleDriveService";
 import { Settings } from "lucide-react";
 
@@ -154,10 +154,36 @@ export default function App() {
     }
   };
 
-  const handleAddTextNote = async (file) => {
+  const handleAddTextNote = async ({ title, content, timestamp }) => {
     if (!config) return;
 
-    await uploadTextNoteToDrive(config.accessToken, config.folderId, file);
+    const uploadedNote = await createTextNoteInDrive(
+      config.accessToken,
+      config.folderId,
+      { title, content },
+    );
+
+    const noteOverride = {
+      ...(configData.overrides?.[uploadedNote.id] || {}),
+      title,
+      customDate: new Date(timestamp).toISOString(),
+      memo: content,
+    };
+    const updatedConfigData = {
+      ...configData,
+      overrides: {
+        ...(configData.overrides || {}),
+        [uploadedNote.id]: noteOverride,
+      },
+    };
+    const savedConfigData = await saveConfigToDrive(
+      config.accessToken,
+      config.folderId,
+      configFileId,
+      updatedConfigData,
+    );
+
+    setConfigData(savedConfigData || updatedConfigData);
     const result = await loadDriveData(config.accessToken, config.folderId);
     setImages(result.items || []);
     setConfigData(
