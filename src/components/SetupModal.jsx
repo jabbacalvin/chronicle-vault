@@ -62,7 +62,7 @@ export default function SetupModal({ onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
