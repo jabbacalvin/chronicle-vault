@@ -824,6 +824,9 @@ export default function TimelinePage({
 
   const currentModalPhoto =
     modalGroup?.photos?.[modalGroup.currentIndex] || null;
+  const currentModalMemo =
+    String(currentModalPhoto?.memo || "").trim() ||
+    String(currentModalPhoto?.note || "").trim();
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden select-none bg-slate-950 m-0 p-0 relative">
@@ -1293,35 +1296,59 @@ export default function TimelinePage({
             <X className="w-5 h-5" />
           </button>
 
-          {/* Modal Image Display */}
+          {/* Photo and memo panel share this viewer for both a single photo and a carousel. */}
           <div
-            className="relative flex-1 w-full max-w-5xl my-4 flex items-center justify-center overflow-hidden"
+            className="relative flex-1 min-h-0 w-full max-w-7xl my-3 lg:px-14 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-6"
             onClick={(e) => e.stopPropagation()}
           >
-            {isModalImageLoading ? (
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="relative flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden">
+              {isModalImageLoading ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
 
-                <span className="text-xs text-slate-400 font-mono">
-                  Loading evidence...
-                </span>
-              </div>
-            ) : currentModalPhoto?.type === "text_note" ? (
-              <article className="w-full max-w-3xl max-h-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl whitespace-pre-wrap break-words">
-                {currentModalPhoto.noteContent ||
-                  currentModalPhoto.memo ||
-                  "(Empty note)"}
-              </article>
-            ) : activeImage ? (
-              <img
-                src={activeImage}
-                className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
-                alt="Evidence Preview"
-              />
-            ) : (
-              <div className="text-xs text-slate-400">
-                Failed to render image.
-              </div>
+                  <span className="text-xs text-slate-400 font-mono">
+                    Loading evidence...
+                  </span>
+                </div>
+              ) : currentModalPhoto?.type === "text_note" ? (
+                <article className="w-full max-w-3xl max-h-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl whitespace-pre-wrap break-words">
+                  {currentModalPhoto.noteContent ||
+                    currentModalPhoto.memo ||
+                    "(Empty note)"}
+                </article>
+              ) : activeImage ? (
+                <img
+                  src={activeImage}
+                  className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
+                  alt={currentModalPhoto?.title || "Evidence Preview"}
+                />
+              ) : (
+                <div className="text-xs text-slate-400">
+                  Failed to render image.
+                </div>
+              )}
+            </div>
+
+            {currentModalPhoto && currentModalPhoto.type !== "text_note" && (
+              <aside className="w-full lg:w-80 xl:w-96 h-fit self-center shrink-0 rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
+                <h2 className="text-sm font-semibold text-slate-100 break-words">
+                  {currentModalPhoto.title ||
+                    currentModalPhoto.name ||
+                    "Untitled Evidence"}
+                </h2>
+                <div className="mt-4 border-t border-slate-700 pt-4">
+                  <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                    Memo
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
+                    {currentModalMemo || (
+                      <span className="text-slate-500 italic">
+                        No memo added.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </aside>
             )}
           </div>
 
@@ -1365,8 +1392,8 @@ export default function TimelinePage({
             </>
           )}
 
-          {/* Modal Footer Caption */}
-          {currentModalPhoto && (
+          {/* Text notes keep their title caption below the note content. */}
+          {currentModalPhoto?.type === "text_note" && (
             <div
               className="text-center text-xs text-slate-400 font-mono z-10 truncate max-w-xl"
               onClick={(e) => e.stopPropagation()}
