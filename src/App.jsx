@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import TimelinePage from "./pages/TimelinePage";
 import SetupModal from "./components/SetupModal";
 import {
@@ -6,6 +6,7 @@ import {
   saveConfigToDrive,
   createTextNoteInDrive,
   updateTextNoteInDrive,
+  isGoogleDriveAuthorizationError,
 } from "./services/googleDriveService";
 import { Settings } from "lucide-react";
 
@@ -25,6 +26,13 @@ export default function App() {
     groups: [],
   });
   const [configFileId, setConfigFileId] = useState(null);
+
+  const showSetupForAuthorizationError = useCallback((err) => {
+    if (!isGoogleDriveAuthorizationError(err)) return false;
+    setError(null);
+    setShowSetup(true);
+    return true;
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.overflow = "hidden";
@@ -49,15 +57,17 @@ export default function App() {
         );
         setConfigFileId(result.configFileId);
       } catch (err) {
-        console.error("Failed to load drive data:", err);
-        setError(err.message);
+        if (!showSetupForAuthorizationError(err)) {
+          console.error("Failed to load drive data:", err);
+          setError(err.message);
+        }
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchData();
-  }, [config]);
+  }, [config, showSetupForAuthorizationError]);
 
   const handleSaveConfig = (newConfig) => {
     setConfig(newConfig);
@@ -151,12 +161,16 @@ export default function App() {
         updatedConfigData,
       );
     } catch (err) {
-      console.error("Failed to save edit to Google Drive:", err);
+      if (!showSetupForAuthorizationError(err)) {
+        console.error("Failed to save edit to Google Drive:", err);
+      }
     }
   };
 
   const handleAddTextNote = async ({ title, content, timestamp }) => {
     if (!config) return;
+
+    try {
 
     const uploadedNote = await createTextNoteInDrive(
       config.accessToken,
@@ -191,6 +205,9 @@ export default function App() {
       result.configData || { overrides: {}, virtualEntries: [], groups: [] },
     );
     setConfigFileId(result.configFileId);
+    } catch (err) {
+      if (!showSetupForAuthorizationError(err)) throw err;
+    }
   };
 
   const handleUpdateTextNote = async (
@@ -198,6 +215,8 @@ export default function App() {
     { title, content, timestamp },
   ) => {
     if (!config) return;
+
+    try {
 
     await updateTextNoteInDrive(config.accessToken, noteId, { title, content });
 
@@ -230,6 +249,9 @@ export default function App() {
       result.configData || { overrides: {}, virtualEntries: [], groups: [] },
     );
     setConfigFileId(result.configFileId);
+    } catch (err) {
+      if (!showSetupForAuthorizationError(err)) throw err;
+    }
   };
 
   return (
@@ -262,6 +284,7 @@ export default function App() {
             onSaveEdit={handleSaveEdit}
             accessToken={config.accessToken}
             onAddTextNote={handleAddTextNote}
+            onAuthenticationError={showSetupForAuthorizationError}
             onUpdateTextNote={handleUpdateTextNote}
           />
         )}
