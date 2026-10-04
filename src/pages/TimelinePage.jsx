@@ -1442,6 +1442,13 @@ export default function TimelinePage({
                 key={item.id}
                 ref={(el) => (cardRefs.current[item.id] = el)}
                 draggable={!isGroupingMode && !isEditing}
+                title={
+                  !isGroupingMode && !isEditing
+                    ? isGroup
+                      ? "Drag to change this group's timeline time; drop evidence here to add it."
+                      : "Drag between cards to set this evidence's date and time."
+                    : undefined
+                }
                 onDragStart={(event) => handleTimelineDragStart(item, event)}
                 onDragEnd={handleTimelineDragEnd}
                 onDragOver={(event) => handleGroupDragOver(item, event)}
