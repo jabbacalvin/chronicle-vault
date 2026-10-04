@@ -1883,7 +1883,6 @@ export default function TimelinePage({
           )}
         </div>
       )}
-    </div>
       {appDialog && (
         <div
           className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
@@ -1950,5 +1949,6 @@ export default function TimelinePage({
           </section>
         </div>
       )}
+    </div>
   );
 }
