@@ -224,27 +224,33 @@ export async function loadDriveData(accessToken, folderId) {
       };
     });
 
-    // Membership is also recorded on each photo override by Drive file ID.
-    // This lets the loader reconstruct a group's members from the same stable
-    // key used for per-photo title/date overrides.
+    // Membership is also recorded on each member override by Drive file ID.
+    // This uses the same stable key as per-file title/date overrides and works
+    // for every supported file type in the timeline.
     const configuredGroups = Array.isArray(configData.groups)
       ? configData.groups
       : [];
     const groupItems = configuredGroups.map((group) => {
       const timelineFileItems = [...items, ...textItems];
-      const linkedPhotoIds = timelineFileItems
+      const linkedFileIds = timelineFileItems
         .filter((item) => item.groupId === group.id)
         .map((item) => item.id);
-      const savedPhotoIds = Array.isArray(group.photoIds) ? group.photoIds : [];
-      const availableItemIds = new Set(
+      // Read photoIds for existing configs, but expose and save fileIds going
+      // forward so groups can contain notes and other Drive file types.
+      const savedFileIds = Array.isArray(group.fileIds)
+        ? group.fileIds
+        : Array.isArray(group.photoIds)
+          ? group.photoIds
+          : [];
+      const availableFileIds = new Set(
         [...timelineFileItems, ...virtualItems].map((item) => item.id),
       );
-      const savedVirtualIds = savedPhotoIds.filter((id) =>
+      const savedVirtualIds = savedFileIds.filter((id) =>
         virtualItems.some((item) => item.id === id),
       );
-      const photoIds = linkedPhotoIds.length
-        ? [...new Set([...linkedPhotoIds, ...savedVirtualIds])]
-        : [...new Set(savedPhotoIds.filter((id) => availableItemIds.has(id)))];
+      const fileIds = linkedFileIds.length
+        ? [...new Set([...linkedFileIds, ...savedVirtualIds])]
+        : [...new Set(savedFileIds.filter((id) => availableFileIds.has(id)))];
       const rawDate = group.customDate || group.timestamp;
       const parsedTimestamp = rawDate
         ? new Date(rawDate).getTime()
@@ -270,7 +276,7 @@ export async function loadDriveData(accessToken, folderId) {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        photoIds,
+        fileIds,
       };
     });
 

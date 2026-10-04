@@ -80,13 +80,13 @@ export default function App() {
           note: group.note || group.memo || "",
           memo: group.memo || group.note || "",
           customDate: new Date(group.timestamp).toISOString(),
-          photoIds: [...new Set(group.photoIds || [])],
+          fileIds: [...new Set(group.fileIds || [])],
         }));
 
-      const groupByPhotoId = new Map();
+      const groupByFileId = new Map();
       groups.forEach((group) => {
-        group.photoIds.forEach((photoId) => {
-          groupByPhotoId.set(photoId, group.id);
+        group.fileIds.forEach((fileId) => {
+          groupByFileId.set(fileId, group.id);
         });
       });
 
@@ -121,7 +121,7 @@ export default function App() {
         }
 
         const nextOverride = { ...(newOverrides[item.id] || {}) };
-        const groupId = groupByPhotoId.get(item.id);
+        const groupId = groupByFileId.get(item.id);
         if (groupId) {
           nextOverride.groupId = groupId;
         } else {

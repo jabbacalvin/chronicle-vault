@@ -160,7 +160,7 @@ export default function TimelinePage({
         if (item.type === "event_group") return true;
 
         const isGrouped = items.some(
-          (g) => g.type === "event_group" && g.photoIds?.includes(item.id),
+          (g) => g.type === "event_group" && g.fileIds?.includes(item.id),
         );
 
         return !isGrouped;
@@ -169,7 +169,7 @@ export default function TimelinePage({
         if (item.type === "event_group") {
           return {
             ...item,
-            photos: items.filter((i) => item.photoIds?.includes(i.id)),
+            photos: items.filter((i) => item.fileIds?.includes(i.id)),
           };
         }
 
@@ -539,7 +539,7 @@ export default function TimelinePage({
   // Save Group
   // ---------------------------------------------------------------------------
   const handleSaveGroup = (groupData) => {
-    const photoIds = [...new Set(selectedIds)];
+    const fileIds = [...new Set(selectedIds)];
     const anchorId = groupAnchorItem
       ? String(groupAnchorItem.fileId || groupAnchorItem.id)
       : null;
@@ -572,7 +572,7 @@ export default function TimelinePage({
         hour: "2-digit",
         minute: "2-digit",
       }),
-      photoIds,
+      fileIds,
       updatedRecently: true,
     };
 
@@ -604,17 +604,17 @@ export default function TimelinePage({
           return item;
         }
 
-        const existingPhotoIds = item.photoIds || [];
+        const existingFileIds = item.fileIds || [];
 
         // Preserve all existing photos and append the newly selected photos.
         // Set() prevents accidental duplicate photo IDs.
-        const mergedPhotoIds = [
-          ...new Set([...existingPhotoIds, ...selectedIds]),
+        const mergedFileIds = [
+          ...new Set([...existingFileIds, ...selectedIds]),
         ];
 
         return {
           ...item,
-          photoIds: mergedPhotoIds,
+          fileIds: mergedFileIds,
           updatedRecently: true,
         };
       })
