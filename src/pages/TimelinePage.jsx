@@ -1358,20 +1358,6 @@ export default function TimelinePage({
                                   : "View Evidence"}
                           </button>
 
-                          {isGroup && !isGroupingMode && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUngroupEntireGroup(item.id);
-                              }}
-                              className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
-                              title="Return all evidence to the timeline and remove this group"
-                            >
-                              Ungroup All
-                            </button>
-                          )}
-
                           {/* Location Data Button */}
                           {gpsPhotos.length > 0 && (
                             <button
@@ -1386,6 +1372,20 @@ export default function TimelinePage({
                               {isGroup && gpsPhotos.length > 1
                                 ? `Location Data (${gpsPhotos.length})`
                                 : "Location Data"}
+                            </button>
+                          )}
+
+                          {isGroup && !isGroupingMode && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUngroupEntireGroup(item.id);
+                              }}
+                              className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
+                              title="Return all evidence to the timeline and remove this group"
+                            >
+                              Ungroup All
                             </button>
                           )}
                         </div>
