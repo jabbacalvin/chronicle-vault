@@ -171,7 +171,8 @@ export default function EvidenceViewerModal({ state, actions }) {
               )}
             </div>
 
-            {currentModalPhoto && currentModalPhoto.type !== "text_note" && (
+            {currentModalPhoto &&
+              (modalGroup.isEventGroup || currentModalPhoto.type !== "text_note") && (
               <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
                 {modalGroup.isEventGroup && (
                   <section className="mb-4 border-b border-slate-700 pb-4">
@@ -281,7 +282,8 @@ export default function EvidenceViewerModal({ state, actions }) {
                     )}
                   </section>
                 )}
-                {isEditingModalDetails ? (
+                {currentModalPhoto.type !== "text_note" && (
+                  isEditingModalDetails ? (
                   <form
                     onSubmit={handleSaveModalDetails}
                     className="flex flex-col gap-3"
@@ -386,6 +388,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                       </p>
                     </div>
                   </>
+                  )
                 )}
               </aside>
             )}
