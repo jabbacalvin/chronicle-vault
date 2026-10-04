@@ -1,5 +1,5 @@
 // src/pages/TimelinePage.jsx
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   Clock,
   MapPin,
@@ -17,6 +17,7 @@ import GroupModal from "../components/timeline/GroupModal";
 import TextNoteModal from "../components/timeline/TextNoteModal";
 import AppDialog from "../components/timeline/AppDialog";
 import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
+import { isGoogleDriveAuthorizationError } from "../services/googleDriveService";
 
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
@@ -36,6 +37,7 @@ export default function TimelinePage({
   accessToken,
   onAddTextNote,
   onUpdateTextNote,
+  onAuthenticationError,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
@@ -340,7 +342,9 @@ export default function TimelinePage({
         );
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch file binary: ${res.status}`);
+          const error = new Error(`Failed to fetch file binary: ${res.status}`);
+          error.status = res.status;
+          throw error;
         }
 
         const blob = await res.blob();
@@ -481,12 +485,17 @@ export default function TimelinePage({
       // Prepare neighboring carousel images so navigation is usually instant.
       prefetchAdjacentPhotos(photosToView, 0);
     } catch (err) {
-      console.error(err);
-      setAppDialog({
-        type: "alert",
-        title: "Could not load evidence",
-        message: "Failed to load photo evidence.",
-      });
+      if (isGoogleDriveAuthorizationError(err)) {
+        handleCloseModal();
+        onAuthenticationError?.(err);
+      } else {
+        console.error(err);
+        setAppDialog({
+          type: "alert",
+          title: "Could not load evidence",
+          message: "Failed to load photo evidence.",
+        });
+      }
     } finally {
       setIsModalImageLoading(false);
       setLoadingItemId(null);
@@ -528,20 +537,39 @@ export default function TimelinePage({
       setActiveImage(url);
       prefetchAdjacentPhotos(modalGroup.photos, newIndex);
     } catch (err) {
-      console.error("Failed to load evidence at index", newIndex, err);
+      if (isGoogleDriveAuthorizationError(err)) {
+        handleCloseModal();
+        onAuthenticationError?.(err);
+      } else {
+        console.error("Failed to load evidence at index", newIndex, err);
+      }
     } finally {
       setIsModalImageLoading(false);
     }
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setModalGroup(null);
     setActiveImage(null);
     setIsEditingModalDetails(false);
     setModalEditError("");
     setIsEditingModalGroup(false);
     setModalGroupEditError("");
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!modalGroup) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCloseModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [modalGroup, handleCloseModal]);
 
   const handleStartEditingModalDetails = () => {
     const photo = modalGroup?.photos?.[modalGroup.currentIndex];
