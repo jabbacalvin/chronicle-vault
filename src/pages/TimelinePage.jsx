@@ -1030,17 +1030,20 @@ export default function TimelinePage({
     if (!draggedItem) return;
 
     event.preventDefault();
-    const otherItems = displayItems.filter(
-      (candidate) => String(candidate.id) !== String(draggedItem.id),
-    );
-    const cardUnderPointer = otherItems.find((candidate) => {
-      const bounds = cardRefs.current[candidate.id]?.getBoundingClientRect();
-      return bounds && event.clientX >= bounds.left && event.clientX <= bounds.right;
-    });
-    if (String(cardUnderPointer?.id) === String(draggedItem.id)) {
+    const sourceBounds =
+      cardRefs.current[draggedItem.id]?.getBoundingClientRect();
+    if (
+      sourceBounds &&
+      event.clientX >= sourceBounds.left &&
+      event.clientX <= sourceBounds.right
+    ) {
       resetTimelineDrag();
       return;
     }
+
+    const otherItems = displayItems.filter(
+      (candidate) => String(candidate.id) !== String(draggedItem.id),
+    );
 
     const insertionIndex = otherItems.findIndex((candidate) => {
       const bounds = cardRefs.current[candidate.id]?.getBoundingClientRect();
@@ -1108,8 +1111,6 @@ export default function TimelinePage({
       });
     }
   };
-
-  const handleTimelineDragOver = handleTimelineDragOver;
 
   // ---------------------------------------------------------------------------
   // Save Timeline Edit
@@ -1445,7 +1446,7 @@ export default function TimelinePage({
                 onDragEnd={handleTimelineDragEnd}
                 onDragOver={(event) => handleGroupDragOver(item, event)}
                 onDrop={(event) => handleGroupDrop(item.id, event)}
-                className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${String(draggedItemId) === String(item.id) ? "opacity-40" : ""} ${dropTargetGroupId === item.id ? "scale-105" : ""}`}
+                className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${!isGroupingMode && !isEditing ? "cursor-grab active:cursor-grabbing" : ""} ${String(draggedItemId) === String(item.id) ? "opacity-40" : ""} ${dropTargetGroupId === item.id ? "scale-105 ring-2 ring-cyan-400 rounded-md" : ""}`}
                 onClick={(e) => {
                   if (isGroup) {
                     selectTargetGroup(item.id);
