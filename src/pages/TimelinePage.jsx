@@ -39,6 +39,9 @@ export default function TimelinePage({
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
+  // App-level notifications and confirmation dialogs
+  const [appDialog, setAppDialog] = useState(null);
+
   // Modal Evidence Carousel State
   const [modalGroup, setModalGroup] = useState(null);
   const [activeImage, setActiveImage] = useState(null);
@@ -429,7 +432,11 @@ export default function TimelinePage({
     }
 
     if (photosToView.length === 0) {
-      alert("No photo evidence attached to this entry.");
+      setAppDialog({
+        type: "alert",
+        title: "No evidence to view",
+        message: "No photo evidence is attached to this entry.",
+      });
       setLoadingItemId(null);
       return;
     }
@@ -471,7 +478,11 @@ export default function TimelinePage({
       prefetchAdjacentPhotos(photosToView, 0);
     } catch (err) {
       console.error(err);
-      alert("Failed to load photo evidence.");
+      setAppDialog({
+        type: "alert",
+        title: "Could not load evidence",
+        message: "Failed to load photo evidence.",
+      });
     } finally {
       setIsModalImageLoading(false);
       setLoadingItemId(null);
@@ -829,22 +840,11 @@ export default function TimelinePage({
   // ---------------------------------------------------------------------------
   // Remove every member from this group and delete the group record.
   // ---------------------------------------------------------------------------
-  const handleUngroupEntireGroup = async (
-    groupId = modalGroup?.groupId,
-  ) => {
+  const performUngroupEntireGroup = async (groupId) => {
     const group = items.find(
       (item) => item.id === groupId && item.type === "event_group",
     );
     if (!group) return;
-
-    const groupTitle = group.title || "this group";
-    if (
-      !window.confirm(
-        `Ungroup all evidence from "${groupTitle}"? The evidence will remain in your timeline.`,
-      )
-    ) {
-      return;
-    }
 
     const memberIds = new Set(
       (Array.isArray(group.fileIds) ? group.fileIds : []).map(String),
@@ -866,7 +866,27 @@ export default function TimelinePage({
       await onSaveEdit?.(updatedItems);
     } catch (saveError) {
       console.error("Failed to save group ungrouping:", saveError);
+      setAppDialog({
+        type: "alert",
+        title: "Could not ungroup evidence",
+        message: "The group could not be saved. Please try again.",
+      });
     }
+  };
+
+  const handleUngroupEntireGroup = (groupId = modalGroup?.groupId) => {
+    const group = items.find(
+      (item) => item.id === groupId && item.type === "event_group",
+    );
+    if (!group) return;
+
+    setAppDialog({
+      type: "confirm",
+      title: "Ungroup all evidence?",
+      message: `Return all evidence from "${group.title || "this group"}" to the timeline and remove the group?`,
+      confirmLabel: "Ungroup All",
+      onConfirm: () => performUngroupEntireGroup(group.id),
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -967,10 +987,13 @@ export default function TimelinePage({
       setTextNoteBeingEdited(null);
     } catch (noteError) {
       console.error("Failed to save text evidence:", noteError);
-      alert(
-        noteError.message ||
+      setAppDialog({
+        type: "alert",
+        title: "Could not save text evidence",
+        message:
+          noteError.message ||
           "Failed to save the text evidence to Google Drive.",
-      );
+      });
     } finally {
       setIsUploadingNote(false);
     }
@@ -1858,6 +1881,72 @@ export default function TimelinePage({
               {currentModalPhoto.title || currentModalPhoto.name || ""}
             </div>
           )}
+        </div>
+      )}
+      {appDialog && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setAppDialog(null);
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="app-dialog-title"
+            aria-describedby="app-dialog-message"
+            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-950 shadow-2xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <h2 id="app-dialog-title" className="text-base font-semibold text-amber-400">
+                {appDialog.title}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAppDialog(null)}
+                className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                aria-label="Close dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p
+              id="app-dialog-message"
+              className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300"
+            >
+              {appDialog.message}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              {appDialog.type === "confirm" && (
+                <button
+                  type="button"
+                  onClick={() => setAppDialog(null)}
+                  className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const confirmAction = appDialog.onConfirm;
+                  setAppDialog(null);
+                  confirmAction?.();
+                }}
+                autoFocus
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                  appDialog.type === "confirm"
+                    ? "bg-rose-700 text-white hover:bg-rose-600"
+                    : "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                }`}
+              >
+                {appDialog.type === "confirm"
+                  ? appDialog.confirmLabel || "Confirm"
+                  : "OK"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>
