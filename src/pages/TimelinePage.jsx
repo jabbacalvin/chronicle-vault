@@ -17,6 +17,8 @@ import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
 import GroupModal from "../components/timeline/GroupModal";
 import TextNoteModal from "../components/timeline/TextNoteModal";
+import AppDialog from "../components/timeline/AppDialog";
+import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
 
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
@@ -1088,6 +1090,45 @@ export default function TimelinePage({
   const currentModalMemo =
     String(currentModalPhoto?.memo || "").trim() ||
     String(currentModalPhoto?.note || "").trim();
+  const viewerState = {
+    modalGroup,
+    currentModalPhoto,
+    currentModalMemo,
+    activeImage,
+    isModalImageLoading,
+    isEditingModalGroup,
+    isEditingModalDetails,
+    isSavingModalGroup,
+    modalGroupEditTitle,
+    modalGroupEditMemo,
+    modalGroupEditError,
+    isSavingModalDetails,
+    modalEditTitle,
+    modalEditDate,
+    modalEditMemo,
+    modalEditError
+  };
+  const viewerActions = {
+    setTextNoteBeingEdited,
+    setShowTextNoteModal,
+    handleCloseModal,
+    handleOpenMapLocation,
+    handleUngroupCurrentEvidence,
+    handleUngroupEntireGroup,
+    handleSaveModalGroup,
+    handleCancelEditingModalGroup,
+    setModalGroupEditTitle,
+    setModalGroupEditMemo,
+    handleStartEditingModalGroup,
+    handleSaveModalDetails,
+    setIsEditingModalDetails,
+    setModalEditError,
+    setModalEditTitle,
+    setModalEditDate,
+    setModalEditMemo,
+    handleStartEditingModalDetails,
+    handleModalNavigate
+  };
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden select-none bg-slate-950 m-0 p-0 relative">
@@ -1478,387 +1519,8 @@ export default function TimelinePage({
 
       {/* ------------------------------------------------------------------- */}
       {/* Create Group Modal */}
-      {/* ------------------------------------------------------------------- */}
-      <GroupModal
-        isOpen={showGroupModal}
-        selectedCount={selectedIds.length}
-        defaultDate={firstImageDateTime}
-        onClose={() => setShowGroupModal(false)}
-        onSave={handleSaveGroup}
-      />
-
-      <TextNoteModal
-        isOpen={showTextNoteModal}
-        isSaving={isUploadingNote}
-        note={textNoteBeingEdited}
-        onClose={closeTextNoteModal}
-        onSave={handleSaveTextNote}
-      />
-
-      {/* ------------------------------------------------------------------- */}
-      {/* Map Location Modal */}
-      {/* ------------------------------------------------------------------- */}
-      {selectedMapLocation && (
-        <MapModal
-          location={selectedMapLocation}
-          onClose={() => setSelectedMapLocation(null)}
-        />
-      )}
-
-      {/* ------------------------------------------------------------------- */}
-      {/* FULLSCREEN EVIDENCE CAROUSEL VIEWER MODAL */}
-      {/* ------------------------------------------------------------------- */}
-      {modalGroup && (
-        <div
-          onClick={handleCloseModal}
-          className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 cursor-pointer"
-        >
-          {/* Modal Header Bar */}
-          <div
-            className="w-full max-w-4xl flex items-center justify-between text-slate-200 z-10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-slate-100">
-                {modalGroup.groupTitle || "Evidence Viewer"}
-              </span>
-
-              {modalGroup.photos.length > 1 && (
-                <span className="text-xs font-mono text-amber-400 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded">
-                  {modalGroup.currentIndex + 1} / {modalGroup.photos.length}
-                </span>
-              )}
-
-              {currentModalPhoto?.type === "text_note" && (
-                <button
-                  onClick={() => {
-                    setTextNoteBeingEdited(currentModalPhoto);
-                    setShowTextNoteModal(true);
-                    handleCloseModal();
-                  }}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded flex items-center gap-1 transition cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
-                  Edit Text
-                </button>
-              )}
-
-              {/* Dynamic Location Button for Current Carousel Photo */}
-              {currentModalPhoto &&
-                (currentModalPhoto.hasGps ||
-                  (currentModalPhoto.latitude &&
-                    currentModalPhoto.longitude)) && (
-                  <button
-                    onClick={() => handleOpenMapLocation([currentModalPhoto])}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                    Location Data
-                  </button>
-                )}
-
-              {modalGroup.isEventGroup &&
-                currentModalPhoto &&
-                !isEditingModalGroup &&
-                !isEditingModalDetails && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleUngroupCurrentEvidence}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded transition cursor-pointer"
-                      title="Remove this evidence from the group"
-                    >
-                      Remove from Group
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleUngroupEntireGroup}
-                      className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 text-xs rounded transition cursor-pointer"
-                      title="Return all evidence to the timeline and remove this group"
-                    >
-                      Ungroup All
-                    </button>
-                  </>
-                )}
-            </div>
-          </div>
-
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              handleCloseModal();
-            }}
-            className="absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-slate-900/95 border border-slate-700 text-slate-300 hover:text-white hover:border-amber-500 flex items-center justify-center transition cursor-pointer shadow-xl"
-            title="Close Viewer"
-            aria-label="Close viewer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* Photo and memo panel share this viewer for both a single photo and a carousel. */}
-          <div
-            className="relative flex-1 min-h-0 w-full max-w-7xl my-3 lg:px-14 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden">
-              {isModalImageLoading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-
-                  <span className="text-xs text-slate-400 font-mono">
-                    Loading evidence...
-                  </span>
-                </div>
-              ) : currentModalPhoto?.type === "text_note" ? (
-                <article className="w-full max-w-3xl max-h-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl whitespace-pre-wrap break-words">
-                  {currentModalPhoto.noteContent ||
-                    currentModalPhoto.memo ||
-                    "(Empty note)"}
-                </article>
-              ) : activeImage ? (
-                <img
-                  src={activeImage}
-                  className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
-                  alt={currentModalPhoto?.title || "Evidence Preview"}
-                />
-              ) : (
-                <div className="text-xs text-slate-400">
-                  Failed to render image.
-                </div>
-              )}
-            </div>
-
-            {currentModalPhoto && currentModalPhoto.type !== "text_note" && (
-              <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
-                {modalGroup.isEventGroup && (
-                  <section className="mb-4 border-b border-slate-700 pb-4">
-                    {isEditingModalGroup ? (
-                      <form
-                        onSubmit={handleSaveModalGroup}
-                        className="flex flex-col gap-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <h2 className="text-sm font-semibold text-slate-100">
-                            Edit Group
-                          </h2>
-                          <button
-                            type="button"
-                            onClick={handleCancelEditingModalGroup}
-                            disabled={isSavingModalGroup}
-                            className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                          Group Title
-                          <input
-                            type="text"
-                            value={modalGroupEditTitle}
-                            onChange={(event) =>
-                              setModalGroupEditTitle(event.target.value)
-                            }
-                            className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                          Group Memo
-                          <textarea
-                            rows={3}
-                            value={modalGroupEditMemo}
-                            onChange={(event) =>
-                              setModalGroupEditMemo(event.target.value)
-                            }
-                            className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
-                          />
-                        </label>
-                        {modalGroupEditError && (
-                          <p className="text-xs text-rose-300">
-                            {modalGroupEditError}
-                          </p>
-                        )}
-                        <button
-                          type="submit"
-                          disabled={isSavingModalGroup}
-                          className="w-full rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-semibold px-3 py-2 transition disabled:opacity-60"
-                        >
-                          {isSavingModalGroup ? "Saving..." : "Save Group"}
-                        </button>
-                      </form>
-                    ) : (
-                      <>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                              Group
-                            </p>
-                            <h2 className="mt-1 text-sm font-semibold text-slate-100 break-words">
-                              {modalGroup.groupTitle || "Untitled Group"}
-                            </h2>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleStartEditingModalGroup}
-                            className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
-                            title="Edit group title and memo"
-                            aria-label="Edit group title and memo"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                          <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                            Group Memo
-                          </h3>
-                          <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
-                            {String(modalGroup.groupMemo || "").trim() || (
-                              <span className="text-slate-500 italic">
-                                No group memo added.
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </section>
-                )}
-                {isEditingModalDetails ? (
-                  <form
-                    onSubmit={handleSaveModalDetails}
-                    className="flex flex-col gap-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-sm font-semibold text-slate-100">
-                        Edit Evidence
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingModalDetails(false);
-                          setModalEditError("");
-                        }}
-                        disabled={isSavingModalDetails}
-                        className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                      Title
-                      <input
-                        type="text"
-                        value={modalEditTitle}
-                        onChange={(event) =>
-                          setModalEditTitle(event.target.value)
-                        }
-                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                      Date &amp; Time
-                      <input
-                        type="datetime-local"
-                        value={modalEditDate}
-                        onChange={(event) =>
-                          setModalEditDate(event.target.value)
-                        }
-                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                      Memo
-                      <textarea
-                        rows={3}
-                        value={modalEditMemo}
-                        onChange={(event) =>
-                          setModalEditMemo(event.target.value)
-                        }
-                        className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
-                      />
-                    </label>
-
-                    {modalEditError && (
-                      <p className="text-xs text-rose-300">{modalEditError}</p>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={isSavingModalDetails}
-                      className="w-full rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-semibold px-3 py-2 transition disabled:opacity-60"
-                    >
-                      {isSavingModalDetails ? "Saving..." : "Save Changes"}
-                    </button>
-                  </form>
-                ) : (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-sm font-semibold text-slate-100 break-words">
-                        {currentModalPhoto.title ||
-                          currentModalPhoto.name ||
-                          "Untitled Evidence"}
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={handleStartEditingModalDetails}
-                        className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
-                        title="Edit title, date, time, and memo"
-                        aria-label="Edit evidence details"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {currentModalPhoto.dateFormatted} ·{" "}
-                      {currentModalPhoto.timeFormatted}
-                    </p>
-                    <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                      <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
-                        Photo Memo
-                      </h3>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
-                        {currentModalMemo || (
-                          <span className="text-slate-500 italic">
-                            No memo added.
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </aside>
-            )}
-          </div>
-
-          {/* Keep navigation controls at the viewport edges, independent of
-              the centered image's width. */}
-          {modalGroup.photos.length > 1 && !isEditingModalDetails && (
-            <>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleModalNavigate(
-                    modalGroup.currentIndex === 0
-                      ? modalGroup.photos.length - 1
-                      : modalGroup.currentIndex - 1,
-                  );
-                }}
-                className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-slate-900 border border-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center transition shadow-xl cursor-pointer"
-                title="Previous Evidence"
-                aria-label="Previous evidence"
-              >
-                <ChevronLeft className="w-7 h-7" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleModalNavigate(
-                    modalGroup.currentIndex === modalGroup.photos.length - 1
+      {/* --------------      <EvidenceViewerModal state={viewerState} actions={viewerActions} />
+      rentIndex === modalGroup.photos.length - 1
                       ? 0
                       : modalGroup.currentIndex + 1,
                   );
@@ -1883,72 +1545,7 @@ export default function TimelinePage({
           )}
         </div>
       )}
-      {appDialog && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setAppDialog(null);
-          }}
-        >
-          <section
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="app-dialog-title"
-            aria-describedby="app-dialog-message"
-            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-950 shadow-2xl p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <h2 id="app-dialog-title" className="text-base font-semibold text-amber-400">
-                {appDialog.title}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setAppDialog(null)}
-                className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-                aria-label="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p
-              id="app-dialog-message"
-              className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300"
-            >
-              {appDialog.message}
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              {appDialog.type === "confirm" && (
-                <button
-                  type="button"
-                  onClick={() => setAppDialog(null)}
-                  className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition"
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  const confirmAction = appDialog.onConfirm;
-                  setAppDialog(null);
-                  confirmAction?.();
-                }}
-                autoFocus
-                className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
-                  appDialog.type === "confirm"
-                    ? "bg-rose-700 text-white hover:bg-rose-600"
-                    : "bg-amber-500 text-slate-950 hover:bg-amber-400"
-                }`}
-              >
-                {appDialog.type === "confirm"
-                  ? appDialog.confirmLabel || "Confirm"
-                  : "OK"}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      <AppDialog dialog={appDialog} onClose={() => setAppDialog(null)} />
     </div>
   );
 }
