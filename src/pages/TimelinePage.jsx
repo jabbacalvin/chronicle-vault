@@ -785,6 +785,88 @@ export default function TimelinePage({
   };
 
   // ---------------------------------------------------------------------------
+  // Remove the current evidence from its group. If it was the last member,
+  // remove the now-empty group so the evidence returns to the timeline alone.
+  // ---------------------------------------------------------------------------
+  const handleUngroupCurrentEvidence = async () => {
+    const group = items.find(
+      (item) =>
+        item.id === modalGroup?.groupId && item.type === "event_group",
+    );
+    const photo = modalGroup?.photos?.[modalGroup.currentIndex];
+    if (!group || !photo) return;
+
+    const currentId = String(photo.id);
+    const groupFileIds = Array.isArray(group.fileIds) ? group.fileIds : [];
+    const remainingFileIds = groupFileIds.filter(
+      (fileId) => String(fileId) !== currentId,
+    );
+    if (remainingFileIds.length === groupFileIds.length) return;
+
+    const updatedItems = items
+      .flatMap((item) => {
+        if (item.id === group.id) {
+          return remainingFileIds.length
+            ? [{ ...item, fileIds: remainingFileIds, updatedRecently: true }]
+            : [];
+        }
+        if (String(item.id) === currentId) {
+          return [{ ...item, groupId: null, updatedRecently: true }];
+        }
+        return [item];
+      })
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    setItems(updatedItems);
+    handleCloseModal();
+    try {
+      await onSaveEdit?.(updatedItems);
+    } catch (saveError) {
+      console.error("Failed to save evidence ungrouping:", saveError);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Remove every member from this group and delete the group record.
+  // ---------------------------------------------------------------------------
+  const handleUngroupEntireGroup = async () => {
+    const group = items.find(
+      (item) =>
+        item.id === modalGroup?.groupId && item.type === "event_group",
+    );
+    if (!group) return;
+
+    const groupTitle = group.title || "this group";
+    if (
+      !window.confirm(
+        `Ungroup all evidence from "${groupTitle}"? The evidence will remain in your timeline.`,
+      )
+    ) {
+      return;
+    }
+
+    const memberIds = new Set(
+      (Array.isArray(group.fileIds) ? group.fileIds : []).map(String),
+    );
+    const updatedItems = items
+      .filter((item) => item.id !== group.id)
+      .map((item) =>
+        memberIds.has(String(item.id))
+          ? { ...item, groupId: null, updatedRecently: true }
+          : item,
+      )
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    setItems(updatedItems);
+    handleCloseModal();
+    try {
+      await onSaveEdit?.(updatedItems);
+    } catch (saveError) {
+      console.error("Failed to save group ungrouping:", saveError);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Select an existing group as the destination for selected photos
   // ---------------------------------------------------------------------------
   const selectTargetGroup = (groupId) => {
@@ -1433,6 +1515,30 @@ export default function TimelinePage({
                     <MapPin className="w-3.5 h-3.5 text-amber-400" />
                     Location Data
                   </button>
+                )}
+
+              {modalGroup.isEventGroup &&
+                currentModalPhoto &&
+                !isEditingModalGroup &&
+                !isEditingModalDetails && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleUngroupCurrentEvidence}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded transition cursor-pointer"
+                      title="Remove this evidence from the group"
+                    >
+                      Remove from Group
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUngroupEntireGroup}
+                      className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 text-xs rounded transition cursor-pointer"
+                      title="Return all evidence to the timeline and remove this group"
+                    >
+                      Ungroup All
+                    </button>
+                  </>
                 )}
             </div>
           </div>
