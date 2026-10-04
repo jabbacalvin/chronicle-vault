@@ -829,10 +829,11 @@ export default function TimelinePage({
   // ---------------------------------------------------------------------------
   // Remove every member from this group and delete the group record.
   // ---------------------------------------------------------------------------
-  const handleUngroupEntireGroup = async () => {
+  const handleUngroupEntireGroup = async (
+    groupId = modalGroup?.groupId,
+  ) => {
     const group = items.find(
-      (item) =>
-        item.id === modalGroup?.groupId && item.type === "event_group",
+      (item) => item.id === groupId && item.type === "event_group",
     );
     if (!group) return;
 
@@ -858,7 +859,9 @@ export default function TimelinePage({
       .sort((a, b) => a.timestamp - b.timestamp);
 
     setItems(updatedItems);
-    handleCloseModal();
+    if (modalGroup?.groupId === group.id) {
+      handleCloseModal();
+    }
     try {
       await onSaveEdit?.(updatedItems);
     } catch (saveError) {
@@ -1354,6 +1357,20 @@ export default function TimelinePage({
                                   ? "Read Note"
                                   : "View Evidence"}
                           </button>
+
+                          {isGroup && !isGroupingMode && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUngroupEntireGroup(item.id);
+                              }}
+                              className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
+                              title="Return all evidence to the timeline and remove this group"
+                            >
+                              Ungroup All
+                            </button>
+                          )}
 
                           {/* Location Data Button */}
                           {gpsPhotos.length > 0 && (
