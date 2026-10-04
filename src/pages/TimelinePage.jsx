@@ -18,6 +18,8 @@ import TextNoteModal from "../components/timeline/TextNoteModal";
 import AppDialog from "../components/timeline/AppDialog";
 import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
 
+const TIMELINE_DRAG_TYPE = "application/x-chronicle-vault-item";
+
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
 
@@ -50,6 +52,9 @@ export default function TimelinePage({
   // Individual item loading state for card buttons
   const [loadingItemId, setLoadingItemId] = useState(null);
   const [isUploadingNote, setIsUploadingNote] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState(null);
+  const [dropTargetGroupId, setDropTargetGroupId] = useState(null);
+  const [dropIndicatorX, setDropIndicatorX] = useState(null);
 
   const [items, setItems] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -898,6 +903,214 @@ export default function TimelinePage({
     setTargetGroupId((prev) => (prev === groupId ? null : groupId));
   };
 
+  const resetTimelineDrag = () => {
+    setDraggedItemId(null);
+    setDropTargetGroupId(null);
+    setDropIndicatorX(null);
+  };
+
+  const handleTimelineDragStart = (item, event) => {
+    if (isGroupingMode || editingId === item.id) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.setData(TIMELINE_DRAG_TYPE, String(item.id));
+    event.dataTransfer.effectAllowed = "move";
+    setDraggedItemId(String(item.id));
+  };
+
+  const handleTimelineDragEnd = () => {
+    resetTimelineDrag();
+  };
+
+  const handleTimelineDragOver = (event) => {
+    if (!Array.from(event.dataTransfer.types).includes(TIMELINE_DRAG_TYPE)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const container = containerRef.current;
+    if (container) {
+      const bounds = container.getBoundingClientRect();
+      setDropIndicatorX(
+        event.clientX - bounds.left + container.scrollLeft,
+      );
+    }
+  };
+
+  const handleTimelineDragLeave = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setDropIndicatorX(null);
+      setDropTargetGroupId(null);
+    }
+  };
+
+  const handleGroupDragOver = (item, event) => {
+    if (item.type !== "event_group" || !draggedItemId) return;
+
+    const draggedItem = items.find(
+      (candidate) => String(candidate.id) === String(draggedItemId),
+    );
+    if (
+      !draggedItem ||
+      draggedItem.type === "event_group" ||
+      String(draggedItem.id) === String(item.id)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetGroupId(item.id);
+    setDropIndicatorX(null);
+  };
+
+  const handleGroupDrop = async (groupId, event) => {
+    const draggedId = event.dataTransfer.getData(TIMELINE_DRAG_TYPE);
+    const draggedItem = items.find(
+      (candidate) => String(candidate.id) === String(draggedId),
+    );
+    const group = items.find(
+      (candidate) =>
+        String(candidate.id) === String(groupId) &&
+        candidate.type === "event_group",
+    );
+
+    if (!draggedItem || draggedItem.type === "event_group" || !group) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const existingFileIds = Array.isArray(group.fileIds) ? group.fileIds : [];
+    if (
+      existingFileIds.some(
+        (fileId) => String(fileId) === String(draggedItem.id),
+      )
+    ) {
+      resetTimelineDrag();
+      return;
+    }
+
+    const updatedItems = items.map((candidate) =>
+      candidate.id === group.id
+        ? {
+            ...candidate,
+            fileIds: [
+              ...new Set([
+                ...existingFileIds.map(String),
+                String(draggedItem.id),
+              ]),
+            ],
+            updatedRecently: true,
+          }
+        : candidate,
+    );
+
+    setItems(updatedItems);
+    resetTimelineDrag();
+    try {
+      await onSaveEdit?.(updatedItems);
+    } catch (saveError) {
+      console.error("Failed to save evidence added by drag and drop:", saveError);
+      setAppDialog({
+        type: "alert",
+        title: "Could not update group",
+        message: "The evidence could not be added to this group. Please try again.",
+      });
+    }
+  };
+
+  const handleTimelineDrop = async (event) => {
+    const draggedId = event.dataTransfer.getData(TIMELINE_DRAG_TYPE);
+    const draggedItem = items.find(
+      (candidate) => String(candidate.id) === String(draggedId),
+    );
+    if (!draggedItem) return;
+
+    event.preventDefault();
+    const otherItems = displayItems.filter(
+      (candidate) => String(candidate.id) !== String(draggedItem.id),
+    );
+    const cardUnderPointer = otherItems.find((candidate) => {
+      const bounds = cardRefs.current[candidate.id]?.getBoundingClientRect();
+      return bounds && event.clientX >= bounds.left && event.clientX <= bounds.right;
+    });
+    if (String(cardUnderPointer?.id) === String(draggedItem.id)) {
+      resetTimelineDrag();
+      return;
+    }
+
+    const insertionIndex = otherItems.findIndex((candidate) => {
+      const bounds = cardRefs.current[candidate.id]?.getBoundingClientRect();
+      return bounds && event.clientX < bounds.left + bounds.width / 2;
+    });
+    const nextItemIndex =
+      insertionIndex === -1 ? otherItems.length : insertionIndex;
+    const previousItem = otherItems[nextItemIndex - 1] || null;
+    const nextItem = otherItems[nextItemIndex] || null;
+
+    let timestamp = Number(draggedItem.timestamp);
+    if (previousItem && nextItem) {
+      timestamp =
+        Number(previousItem.timestamp) +
+        Math.floor(
+          (Number(nextItem.timestamp) - Number(previousItem.timestamp)) / 2,
+        );
+    } else if (nextItem) {
+      timestamp = Number(nextItem.timestamp) - 60_000;
+    } else if (previousItem) {
+      timestamp = Number(previousItem.timestamp) + 60_000;
+    }
+
+    if (!Number.isFinite(timestamp) || timestamp === Number(draggedItem.timestamp)) {
+      resetTimelineDrag();
+      return;
+    }
+
+    const date = new Date(timestamp);
+    const updatedItems = items
+      .map((candidate) =>
+        String(candidate.id) === String(draggedItem.id)
+          ? {
+              ...candidate,
+              timestamp,
+              dateFormatted: date.toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              }),
+              timeFormatted: date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              updatedRecently: true,
+            }
+          : candidate,
+      )
+      .sort(
+        (a, b) =>
+          a.timestamp - b.timestamp ||
+          String(a.id).localeCompare(String(b.id)),
+      );
+
+    setItems(updatedItems);
+    resetTimelineDrag();
+    try {
+      await onSaveEdit?.(updatedItems);
+    } catch (saveError) {
+      console.error("Failed to save timeline time change:", saveError);
+      setAppDialog({
+        type: "alert",
+        title: "Could not update time",
+        message: "The new date and time could not be saved. Please try again.",
+      });
+    }
+  };
+
+  const handleTimelineDragOver = handleTimelineDragOver;
+
   // ---------------------------------------------------------------------------
   // Save Timeline Edit
   // ---------------------------------------------------------------------------
@@ -1170,11 +1383,21 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
+        onDragOver={handleTimelineDragOver}
+        onDragLeave={handleTimelineDragLeave}
+        onDrop={handleTimelineDrop}
         className="w-full flex-1 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
         <div className="min-h-full w-max flex items-center gap-12 pl-12 pr-16 relative">
           {/* Timeline center line */}
           <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none" />
+
+          {dropIndicatorX !== null && draggedItemId && (
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] z-20 pointer-events-none"
+              style={{ left: dropIndicatorX }}
+            />
+          )}
 
           {displayItems.map((item, index) => {
             const isTop = index % 2 === 0;
@@ -1217,7 +1440,12 @@ export default function TimelinePage({
               <div
                 key={item.id}
                 ref={(el) => (cardRefs.current[item.id] = el)}
-                className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass}`}
+                draggable={!isGroupingMode && !isEditing}
+                onDragStart={(event) => handleTimelineDragStart(item, event)}
+                onDragEnd={handleTimelineDragEnd}
+                onDragOver={(event) => handleGroupDragOver(item, event)}
+                onDrop={(event) => handleGroupDrop(item.id, event)}
+                className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${String(draggedItemId) === String(item.id) ? "opacity-40" : ""} ${dropTargetGroupId === item.id ? "scale-105" : ""}`}
                 onClick={(e) => {
                   if (isGroup) {
                     selectTargetGroup(item.id);
