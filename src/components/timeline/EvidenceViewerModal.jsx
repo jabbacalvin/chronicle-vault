@@ -173,15 +173,15 @@ export default function EvidenceViewerModal({ state, actions }) {
 
             {currentModalPhoto &&
               (modalGroup.isEventGroup || currentModalPhoto.type !== "text_note") && (
-              <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl">
+              <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl text-center">
                 {modalGroup.isEventGroup && (
                   <section className="mb-4 border-b border-slate-700 pb-4">
                     {isEditingModalGroup ? (
                       <form
                         onSubmit={handleSaveModalGroup}
-                        className="flex flex-col gap-3"
+                        className="flex flex-col items-center gap-3 text-center"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="relative flex items-center justify-center gap-2">
                           <h2 className="text-sm font-semibold text-slate-100">
                             Edit Group
                           </h2>
@@ -189,12 +189,12 @@ export default function EvidenceViewerModal({ state, actions }) {
                             type="button"
                             onClick={handleCancelEditingModalGroup}
                             disabled={isSavingModalGroup}
-                            className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
+                            className="absolute right-0 text-xs text-slate-400 hover:text-white disabled:opacity-50"
                           >
                             Cancel
                           </button>
                         </div>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                        <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Title
                           <input
                             type="text"
@@ -202,10 +202,10 @@ export default function EvidenceViewerModal({ state, actions }) {
                             onChange={(event) =>
                               setModalGroupEditTitle(event.target.value)
                             }
-                            className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                            className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
                           />
                         </label>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                        <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Date &amp; Time
                           <input
                             type="datetime-local"
@@ -213,10 +213,10 @@ export default function EvidenceViewerModal({ state, actions }) {
                             onChange={(event) =>
                               setModalGroupEditDate(event.target.value)
                             }
-                            className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                            className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
                           />
                         </label>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                        <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Memo
                           <textarea
                             rows={3}
@@ -224,7 +224,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                             onChange={(event) =>
                               setModalGroupEditMemo(event.target.value)
                             }
-                            className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
+                            className="w-full normal-case tracking-normal text-center font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
                           />
                         </label>
                         {modalGroupEditError && (
@@ -242,15 +242,15 @@ export default function EvidenceViewerModal({ state, actions }) {
                       </form>
                     ) : (
                       <>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
+                        <div className="relative flex items-center justify-center gap-3 text-center">
+                          <div className="w-full min-w-0">
                             <p className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
                               Group
                             </p>
-                            <h2 className="mt-1 text-sm font-semibold text-slate-100 break-words">
+                            <h2 className="mt-1 text-sm font-semibold text-slate-100 break-words text-center">
                               {modalGroup.groupTitle || "Untitled Group"}
                             </h2>
-                            <p className="mt-1 text-xs text-slate-400">
+                            <p className="mt-1 text-xs text-slate-400 text-center">
                               {modalGroup.groupDateFormatted || "Date unavailable"}
                               {" · "}
                               {modalGroup.groupTimeFormatted || "Time unavailable"}
@@ -259,7 +259,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                           <button
                             type="button"
                             onClick={handleStartEditingModalGroup}
-                            className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
+                            className="absolute right-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
                             title="Edit group title, date, time, and memo"
                             aria-label="Edit group title, date, time, and memo"
                           >
@@ -267,10 +267,10 @@ export default function EvidenceViewerModal({ state, actions }) {
                           </button>
                         </div>
                         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                          <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                          <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400 text-center">
                             Group Memo
                           </h3>
-                          <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
+                          <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text text-center">
                             {String(modalGroup.groupMemo || "").trim() || (
                               <span className="text-slate-500 italic">
                                 No group memo added.
@@ -286,9 +286,9 @@ export default function EvidenceViewerModal({ state, actions }) {
                   isEditingModalDetails ? (
                   <form
                     onSubmit={handleSaveModalDetails}
-                    className="flex flex-col gap-3"
+                    className="flex flex-col items-center gap-3 text-center"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="relative flex items-center justify-center gap-2">
                       <h2 className="text-sm font-semibold text-slate-100">
                         Edit Evidence
                       </h2>
@@ -299,13 +299,13 @@ export default function EvidenceViewerModal({ state, actions }) {
                           setModalEditError("");
                         }}
                         disabled={isSavingModalDetails}
-                        className="text-xs text-slate-400 hover:text-white disabled:opacity-50"
+                        className="absolute right-0 text-xs text-slate-400 hover:text-white disabled:opacity-50"
                       >
                         Cancel
                       </button>
                     </div>
 
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                    <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                       Title
                       <input
                         type="text"
@@ -313,11 +313,11 @@ export default function EvidenceViewerModal({ state, actions }) {
                         onChange={(event) =>
                           setModalEditTitle(event.target.value)
                         }
-                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                        className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
                       />
                     </label>
 
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                    <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                       Date &amp; Time
                       <input
                         type="datetime-local"
@@ -325,11 +325,11 @@ export default function EvidenceViewerModal({ state, actions }) {
                         onChange={(event) =>
                           setModalEditDate(event.target.value)
                         }
-                        className="normal-case tracking-normal font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                        className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
                       />
                     </label>
 
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                    <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                       Memo
                       <textarea
                         rows={3}
@@ -337,7 +337,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                         onChange={(event) =>
                           setModalEditMemo(event.target.value)
                         }
-                        className="normal-case tracking-normal font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
+                        className="w-full normal-case tracking-normal text-center font-sans text-sm leading-relaxed text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500 resize-y"
                       />
                     </label>
 
@@ -355,8 +355,8 @@ export default function EvidenceViewerModal({ state, actions }) {
                   </form>
                 ) : (
                   <>
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-sm font-semibold text-slate-100 break-words">
+                    <div className="relative flex items-center justify-center gap-3 text-center">
+                      <h2 className="text-sm font-semibold text-slate-100 break-words text-center">
                         {currentModalPhoto.title ||
                           currentModalPhoto.name ||
                           "Untitled Evidence"}
@@ -364,22 +364,22 @@ export default function EvidenceViewerModal({ state, actions }) {
                       <button
                         type="button"
                         onClick={handleStartEditingModalDetails}
-                        className="shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
+                        className="absolute right-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
                         title="Edit title, date, time, and memo"
                         aria-label="Edit evidence details"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-slate-400 text-center">
                       {currentModalPhoto.dateFormatted} ·{" "}
                       {currentModalPhoto.timeFormatted}
                     </p>
                     <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                      <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                      <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400 text-center">
                         Photo Memo
                       </h3>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text">
+                      <p className="mt-2 text-sm leading-relaxed text-slate-300 whitespace-pre-wrap break-words select-text text-center">
                         {currentModalMemo || (
                           <span className="text-slate-500 italic">
                             No memo added.
