@@ -127,7 +127,7 @@ export default function AdminAccessModal({
             <Crown className="h-3.5 w-3.5 text-amber-400" /> Transfer ownership
           </h3>
           <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-            The selected account becomes the owner and can manage admins. You’ll keep editing access as an admin, but won’t be able to manage admins. The new owner must already have Editor access to this Drive folder.
+            The selected account becomes the owner and can manage admins. You'll keep editing access as an admin, but won't be able to manage admins. The new owner must already have Editor access to this Drive folder.
           </p>
           <div className="mt-3 flex gap-2">
             <input type="email" value={newOwnerEmail} onChange={(event) => setNewOwnerEmail(event.target.value)} placeholder="new-owner@example.com" aria-label="Email address for new vault owner" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500" />
