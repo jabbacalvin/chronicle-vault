@@ -11,6 +11,8 @@ import {
   CheckSquare,
   FileText,
   Search,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
@@ -32,19 +34,26 @@ const toDateTimeLocalValue = (timestamp) => {
 
 const TIMELINE_PIXELS_PER_HOUR = 6;
 const MIN_TIMELINE_ITEM_GAP = 12;
+const TIMELINE_CARD_WIDTH = 192;
+const TIMELINE_LEFT_PADDING = 48;
+const MIN_TIMELINE_ZOOM = 0.5;
+const MAX_TIMELINE_ZOOM = 3;
 
-const getTimelineItemGap = (previousTimestamp, currentTimestamp) => {
+const getTimelineItemGap = (
+  previousTimestamp,
+  currentTimestamp,
+  zoom = 1,
+) => {
   const elapsedMilliseconds = Math.max(
     0,
     Number(currentTimestamp) - Number(previousTimestamp),
   );
   const elapsedHours = elapsedMilliseconds / (60 * 60 * 1000);
 
-  // Preserve a little breathing room for events at the same or nearby times;
-  // larger time differences then expand linearly along the horizontal axis.
+  // Keep a small minimum gap for nearby events while scaling temporal gaps.
   return Math.max(
-    MIN_TIMELINE_ITEM_GAP,
-    elapsedHours * TIMELINE_PIXELS_PER_HOUR,
+    MIN_TIMELINE_ITEM_GAP * zoom,
+    elapsedHours * TIMELINE_PIXELS_PER_HOUR * zoom,
   );
 };
 
@@ -60,6 +69,7 @@ export default function TimelinePage({
   canEdit = false,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
+  const [timelineZoom, setTimelineZoom] = useState(1);
 
   // App-level notifications and confirmation dialogs
   const [appDialog, setAppDialog] = useState(null);
@@ -273,6 +283,44 @@ export default function TimelinePage({
       );
     });
   }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
+
+  const timelineLayout = useMemo(() => {
+    let nextLeft = TIMELINE_LEFT_PADDING;
+    let previousItem = null;
+    let previousLeft = null;
+    const itemGaps = [];
+    const dateSeparators = [];
+
+    filteredDisplayItems.forEach((item, index) => {
+      const gap = previousItem
+        ? getTimelineItemGap(previousItem.timestamp, item.timestamp, timelineZoom)
+        : 0;
+      const left = nextLeft + gap;
+
+      if (
+        previousItem &&
+        new Date(previousItem.timestamp).toDateString() !==
+          new Date(item.timestamp).toDateString()
+      ) {
+        dateSeparators.push({
+          id: `day-${item.id}`,
+          left: previousLeft + TIMELINE_CARD_WIDTH + gap / 2,
+          label: new Date(item.timestamp).toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+        });
+      }
+
+      itemGaps.push(gap);
+      previousItem = item;
+      previousLeft = left;
+      nextLeft = left + TIMELINE_CARD_WIDTH;
+    });
+
+    return { itemGaps, dateSeparators };
+  }, [filteredDisplayItems, timelineZoom]);
 
   const selectedImages = useMemo(
     () =>
@@ -1329,7 +1377,48 @@ export default function TimelinePage({
             {filteredDisplayItems.length} / {displayItems.length}
           </span>
         </div>
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+          <div
+            role="group"
+            aria-label="Timeline zoom controls"
+            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg"
+          >
+            <button
+              type="button"
+              onClick={() => setTimelineZoom((zoom) =>
+                Math.max(MIN_TIMELINE_ZOOM, Number((zoom / 1.25).toFixed(2))),
+              )}
+              disabled={timelineZoom <= MIN_TIMELINE_ZOOM}
+              aria-label="Zoom out on timeline"
+              title="Zoom out"
+              className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <span className="min-w-10 text-center text-[10px] font-mono text-slate-300" aria-live="polite">
+              {Math.round(timelineZoom * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => setTimelineZoom((zoom) =>
+                Math.min(MAX_TIMELINE_ZOOM, Number((zoom * 1.25).toFixed(2))),
+              )}
+              disabled={timelineZoom >= MAX_TIMELINE_ZOOM}
+              aria-label="Zoom in on timeline"
+              title="Zoom in"
+              className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineZoom(1)}
+              disabled={timelineZoom === 1}
+              className="rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"
+            >
+              Reset
+            </button>
+          </div>
           {canEdit && !isGroupingMode && (
             <>
               <button
@@ -1376,6 +1465,18 @@ export default function TimelinePage({
               : "w-full flex items-center justify-center"
           }`}
         >
+          {timelineLayout.dateSeparators.map((separator) => (
+            <div
+              key={separator.id}
+              aria-hidden="true"
+              className="absolute top-0 bottom-0 z-[1] border-l-2 border-dotted border-sky-400/70 pointer-events-none"
+              style={{ left: separator.left }}
+            >
+              <span className="absolute left-2 top-16 whitespace-nowrap rounded border border-sky-500/30 bg-slate-950/95 px-2 py-1 text-[10px] font-mono text-sky-200 shadow-lg">
+                {separator.label}
+              </span>
+            </div>
+          ))}
           {filteredDisplayItems.length > 0 && (
             <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none" />
           )}
@@ -1396,10 +1497,6 @@ export default function TimelinePage({
               )}
             </div>
           ) : filteredDisplayItems.map((item, index) => {
-            const previousItem = filteredDisplayItems[index - 1];
-            const timelineGap = previousItem
-              ? getTimelineItemGap(previousItem.timestamp, item.timestamp)
-              : 0;
             const isTop = index % 2 === 0;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
@@ -1440,7 +1537,7 @@ export default function TimelinePage({
               <div
                 key={item.id}
                 ref={(el) => (cardRefs.current[item.id] = el)}
-                style={{ marginInlineStart: timelineGap }}
+                style={{ marginInlineStart: timelineLayout.itemGaps[index] }}
                 className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass}`}
                 onClick={(e) => {
                   if (isGroup) {
