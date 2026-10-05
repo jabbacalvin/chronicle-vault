@@ -33,28 +33,22 @@ const toDateTimeLocalValue = (timestamp) => {
 };
 
 const TIMELINE_PIXELS_PER_HOUR = 6;
-const MIN_TIMELINE_ITEM_GAP = 12;
 const TIMELINE_CARD_WIDTH = 192;
+const TIMELINE_MARKER_WIDTH = 32;
 const TIMELINE_LEFT_PADDING = 48;
-const MIN_TIMELINE_ZOOM = 0.5;
+const TIMELINE_RIGHT_PADDING = 64;
+const MIN_TIMELINE_ZOOM = 0.05;
 const MAX_TIMELINE_ZOOM = 3;
+const COMPACT_ZOOM_THRESHOLD = 0.4;
+const TIMELINE_LANE_SPACING = 260;
+const TIMELINE_CARD_AXIS_CLEARANCE = 300;
+const MIN_DATE_LABEL_SPACING = 76;
+const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
-const getTimelineItemGap = (
-  previousTimestamp,
-  currentTimestamp,
-  zoom = 1,
-) => {
-  const elapsedMilliseconds = Math.max(
-    0,
-    Number(currentTimestamp) - Number(previousTimestamp),
-  );
-  const elapsedHours = elapsedMilliseconds / (60 * 60 * 1000);
-
-  // Keep a small minimum gap for nearby events while scaling temporal gaps.
-  return Math.max(
-    MIN_TIMELINE_ITEM_GAP * zoom,
-    elapsedHours * TIMELINE_PIXELS_PER_HOUR * zoom,
-  );
+const getLocalDayStart = (timestamp) => {
+  const dayStart = new Date(Number(timestamp));
+  dayStart.setHours(0, 0, 0, 0);
+  return dayStart;
 };
 
 export default function TimelinePage({
@@ -70,6 +64,8 @@ export default function TimelinePage({
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
   const [timelineZoom, setTimelineZoom] = useState(1);
+  const [isFitView, setIsFitView] = useState(false);
+  const [timelineViewport, setTimelineViewport] = useState({ width: 0, height: 0 });
 
   // App-level notifications and confirmation dialogs
   const [appDialog, setAppDialog] = useState(null);
@@ -122,6 +118,25 @@ export default function TimelinePage({
   const containerRef = useRef(null);
   const cardRefs = useRef({});
   const objectUrlsRef = useRef(new Set());
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
+
+    const observer = new ResizeObserver(() => {
+      setTimelineViewport({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    });
+    observer.observe(element);
+    setTimelineViewport({
+      width: element.clientWidth,
+      height: element.clientHeight,
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // Image performance caches.
   // resolvedImageCacheRef prevents re-downloading/re-converting an image that
@@ -285,43 +300,140 @@ export default function TimelinePage({
   }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
 
   const timelineLayout = useMemo(() => {
-    let nextLeft = TIMELINE_LEFT_PADDING;
-    let previousItem = null;
-    let previousLeft = null;
-    const itemGaps = [];
-    const dateSeparators = [];
+    if (filteredDisplayItems.length === 0) {
+      return {
+        entries: [],
+        dateMarkers: [],
+        canvasWidth: timelineViewport.width || 800,
+        canvasHeight: timelineViewport.height || 600,
+        axisY: (timelineViewport.height || 600) / 2,
+        zoom: timelineZoom,
+        isCompact: false,
+      };
+    }
+
+    const earliestTimestamp = Number(filteredDisplayItems[0].timestamp);
+    const latestTimestamp = Number(
+      filteredDisplayItems[filteredDisplayItems.length - 1].timestamp,
+    );
+    const firstDayStart = getLocalDayStart(earliestTimestamp);
+    const lastDayEnd = getLocalDayStart(latestTimestamp);
+    lastDayEnd.setDate(lastDayEnd.getDate() + 1);
+
+    const durationHours = Math.max(
+      1,
+      (lastDayEnd.getTime() - firstDayStart.getTime()) / HOUR_MILLISECONDS,
+    );
+    const viewportWidth = timelineViewport.width || 800;
+    const fitAvailableWidth = Math.max(
+      TIMELINE_MARKER_WIDTH + 1,
+      viewportWidth -
+        TIMELINE_LEFT_PADDING -
+        TIMELINE_RIGHT_PADDING -
+        TIMELINE_MARKER_WIDTH,
+    );
+    const fitZoom = Math.min(
+      1,
+      fitAvailableWidth / (durationHours * TIMELINE_PIXELS_PER_HOUR),
+    );
+    const zoom = isFitView ? fitZoom : timelineZoom;
+    const isCompact = isFitView || zoom < COMPACT_ZOOM_THRESHOLD;
+    const occupiedWidth = isCompact
+      ? TIMELINE_MARKER_WIDTH
+      : TIMELINE_CARD_WIDTH;
+    const xForTimestamp = (timestamp) =>
+      TIMELINE_LEFT_PADDING +
+      ((Number(timestamp) - firstDayStart.getTime()) / HOUR_MILLISECONDS) *
+        TIMELINE_PIXELS_PER_HOUR *
+        zoom;
+
+    const laneEnds = [[], []];
+    const entries = [];
+    const dateMarkers = [];
+    let previousDayKey = null;
+    let lastDateLabelX = -Infinity;
 
     filteredDisplayItems.forEach((item, index) => {
-      const gap = previousItem
-        ? getTimelineItemGap(previousItem.timestamp, item.timestamp, timelineZoom)
-        : 0;
-      const left = nextLeft + gap;
+      const itemX = xForTimestamp(item.timestamp);
+      const dayStart = getLocalDayStart(item.timestamp);
+      const dayKey = dayStart.getTime();
 
-      if (
-        previousItem &&
-        new Date(previousItem.timestamp).toDateString() !==
-          new Date(item.timestamp).toDateString()
-      ) {
-        dateSeparators.push({
-          id: `day-${item.id}`,
-          left: previousLeft + TIMELINE_CARD_WIDTH + gap / 2,
-          label: new Date(item.timestamp).toLocaleDateString([], {
+      if (dayKey !== previousDayKey) {
+        const dateX = xForTimestamp(dayStart.getTime());
+        const showLabel =
+          dateMarkers.length === 0 ||
+          dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
+        dateMarkers.push({
+          id: `day-${dayKey}`,
+          left: dateX,
+          label: dayStart.toLocaleDateString([], {
             month: "short",
             day: "numeric",
             year: "numeric",
           }),
+          showLabel,
         });
+        if (showLabel) lastDateLabelX = dateX;
+        previousDayKey = dayKey;
       }
 
-      itemGaps.push(gap);
-      previousItem = item;
-      previousLeft = left;
-      nextLeft = left + TIMELINE_CARD_WIDTH;
+      const halfWidth = occupiedWidth / 2;
+      const leftEdge = itemX - halfWidth;
+      const preferredSide = index % 2 === 0 ? 0 : 1;
+      const otherSide = preferredSide === 0 ? 1 : 0;
+      let side = preferredSide;
+      let lane = laneEnds[side].findIndex((rightEdge) => rightEdge + 8 <= leftEdge);
+
+      if (lane < 0) {
+        lane = laneEnds[otherSide].findIndex(
+          (rightEdge) => rightEdge + 8 <= leftEdge,
+        );
+        if (lane >= 0) {
+          side = otherSide;
+        } else {
+          side =
+            laneEnds[preferredSide].length <= laneEnds[otherSide].length
+              ? preferredSide
+              : otherSide;
+          lane = laneEnds[side].length;
+        }
+      }
+
+      laneEnds[side][lane] = itemX + halfWidth;
+      entries.push({ id: item.id, x: itemX, side, lane });
     });
 
-    return { itemGaps, dateSeparators };
-  }, [filteredDisplayItems, timelineZoom]);
+    const topLaneCount = laneEnds[0].length;
+    const bottomLaneCount = laneEnds[1].length;
+    const topExtent = topLaneCount
+      ? TIMELINE_CARD_AXIS_CLEARANCE +
+        (topLaneCount - 1) * TIMELINE_LANE_SPACING
+      : 32;
+    const bottomExtent = bottomLaneCount
+      ? TIMELINE_CARD_AXIS_CLEARANCE +
+        (bottomLaneCount - 1) * TIMELINE_LANE_SPACING
+      : 32;
+    const canvasHeight = Math.max(
+      timelineViewport.height || 600,
+      topExtent + bottomExtent + 32,
+    );
+    const axisY =
+      topExtent + (canvasHeight - topExtent - bottomExtent) / 2;
+    const canvasWidth = Math.max(
+      viewportWidth,
+      xForTimestamp(lastDayEnd.getTime()) + TIMELINE_RIGHT_PADDING,
+    );
 
+    return {
+      entries,
+      dateMarkers,
+      canvasWidth,
+      canvasHeight,
+      axisY,
+      zoom,
+      isCompact,
+    };
+  }, [filteredDisplayItems, timelineZoom, isFitView, timelineViewport]);
   const selectedImages = useMemo(
     () =>
       selectedIds
@@ -1385,10 +1497,16 @@ export default function TimelinePage({
           >
             <button
               type="button"
-              onClick={() => setTimelineZoom((zoom) =>
-                Math.max(MIN_TIMELINE_ZOOM, Number((zoom / 1.25).toFixed(2))),
-              )}
-              disabled={timelineZoom <= MIN_TIMELINE_ZOOM}
+              onClick={() => {
+                setIsFitView(false);
+                setTimelineZoom((zoom) =>
+                  Math.max(
+                    MIN_TIMELINE_ZOOM,
+                    Number(((isFitView ? timelineLayout.zoom : zoom) / 1.25).toFixed(3)),
+                  ),
+                );
+              }}
+              disabled={!isFitView && timelineZoom <= MIN_TIMELINE_ZOOM}
               aria-label="Zoom out on timeline"
               title="Zoom out"
               className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
@@ -1396,14 +1514,24 @@ export default function TimelinePage({
               <ZoomOut className="h-4 w-4" />
             </button>
             <span className="min-w-10 text-center text-[10px] font-mono text-slate-300" aria-live="polite">
-              {Math.round(timelineZoom * 100)}%
+              {isFitView
+                ? "Fit"
+                : timelineZoom < 0.1
+                  ? `${(timelineZoom * 100).toFixed(1)}%`
+                  : `${Math.round(timelineZoom * 100)}%`}
             </span>
             <button
               type="button"
-              onClick={() => setTimelineZoom((zoom) =>
-                Math.min(MAX_TIMELINE_ZOOM, Number((zoom * 1.25).toFixed(2))),
-              )}
-              disabled={timelineZoom >= MAX_TIMELINE_ZOOM}
+              onClick={() => {
+                setIsFitView(false);
+                setTimelineZoom((zoom) =>
+                  Math.min(
+                    MAX_TIMELINE_ZOOM,
+                    Number(((isFitView ? timelineLayout.zoom : zoom) * 1.25).toFixed(3)),
+                  ),
+                );
+              }}
+              disabled={!isFitView && timelineZoom >= MAX_TIMELINE_ZOOM}
               aria-label="Zoom in on timeline"
               title="Zoom in"
               className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
@@ -1412,11 +1540,27 @@ export default function TimelinePage({
             </button>
             <button
               type="button"
-              onClick={() => setTimelineZoom(1)}
-              disabled={timelineZoom === 1}
+              onClick={() => {
+                setIsFitView(true);
+                containerRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+              }}
+              disabled={isFitView}
+              className="rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"
+              title="Fit the full timeline in view"
+            >
+              Fit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTimelineZoom(1);
+                setIsFitView(false);
+                containerRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+              }}
+              disabled={!isFitView && timelineZoom === 1}
               className="rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"
             >
-              Reset
+              100%
             </button>
           </div>
           {canEdit && !isGroupingMode && (
@@ -1456,29 +1600,42 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className="w-full flex-1 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
+        className="w-full flex-1 overflow-auto relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
         <div
-          className={`min-h-full relative ${
+          style={
             filteredDisplayItems.length > 0
-              ? "w-max flex items-center pl-12 pr-16"
-              : "w-full flex items-center justify-center"
-          }`}
+              ? {
+                  width: timelineLayout.canvasWidth,
+                  height: timelineLayout.canvasHeight,
+                }
+              : undefined
+          }
+          className={
+            filteredDisplayItems.length > 0
+              ? "relative shrink-0"
+              : "w-full h-full flex items-center justify-center"
+          }
         >
-          {timelineLayout.dateSeparators.map((separator) => (
+          {timelineLayout.dateMarkers.map((marker) => (
             <div
-              key={separator.id}
+              key={marker.id}
               aria-hidden="true"
               className="absolute top-0 bottom-0 z-[1] border-l-2 border-dotted border-sky-400/70 pointer-events-none"
-              style={{ left: separator.left }}
+              style={{ left: marker.left }}
             >
-              <span className="absolute left-2 top-16 whitespace-nowrap rounded border border-sky-500/30 bg-slate-950/95 px-2 py-1 text-[10px] font-mono text-sky-200 shadow-lg">
-                {separator.label}
-              </span>
+              {marker.showLabel && (
+                <span className="absolute left-2 top-16 whitespace-nowrap rounded border border-sky-500/30 bg-slate-950/95 px-2 py-1 text-[10px] font-mono text-sky-200 shadow-lg">
+                  {marker.label}
+                </span>
+              )}
             </div>
           ))}
           {filteredDisplayItems.length > 0 && (
-            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none" />
+            <div
+              className="absolute left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none"
+              style={{ top: timelineLayout.axisY }}
+            />
           )}
 
           {filteredDisplayItems.length === 0 ? (
@@ -1497,7 +1654,11 @@ export default function TimelinePage({
               )}
             </div>
           ) : filteredDisplayItems.map((item, index) => {
-            const isTop = index % 2 === 0;
+            const entryLayout = timelineLayout.entries[index];
+            const isTop = entryLayout.side === 0;
+            const laneIndex = entryLayout.lane;
+            const connectorLength =
+              64 + laneIndex * TIMELINE_LANE_SPACING;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
@@ -1537,10 +1698,37 @@ export default function TimelinePage({
               <div
                 key={item.id}
                 ref={(el) => (cardRefs.current[item.id] = el)}
-                style={{ marginInlineStart: timelineLayout.itemGaps[index] }}
-                className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass}`}
+                role={timelineLayout.isCompact ? "button" : undefined}
+                tabIndex={timelineLayout.isCompact ? 0 : undefined}
+                title={
+                  timelineLayout.isCompact
+                    ? `${item.title} · ${item.dateFormatted} ${item.timeFormatted}`
+                    : undefined
+                }
+                style={{
+                  left: entryLayout.x - TIMELINE_CARD_WIDTH / 2,
+                  top: timelineLayout.axisY - 144,
+                }}
+                className={`absolute w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
+                onKeyDown={(event) => {
+                  if (
+                    timelineLayout.isCompact &&
+                    (event.key === "Enter" || event.key === " ")
+                  ) {
+                    event.preventDefault();
+                    if (!isGroupingMode) {
+                      handleOpenEvidenceModal(item);
+                    } else if (isGroup) {
+                      selectTargetGroup(item.id);
+                    } else {
+                      toggleSelection(item.id, event.shiftKey);
+                    }
+                  }
+                }}
                 onClick={(e) => {
-                  if (isGroup) {
+                  if (timelineLayout.isCompact && !isGroupingMode) {
+                    handleOpenEvidenceModal(item);
+                  } else if (isGroup) {
                     selectTargetGroup(item.id);
                   } else {
                     toggleSelection(item.id, e.shiftKey);
@@ -1550,14 +1738,15 @@ export default function TimelinePage({
                 {/* Vertical connector */}
                 <div
                   className={`absolute left-1/2 -translate-x-1/2 w-0.5 bg-amber-500/80 z-0 ${
-                    isTop ? "bottom-1/2 h-16" : "top-1/2 h-16"
+                    isTop ? "bottom-1/2" : "top-1/2"
                   }`}
+                  style={{ height: connectorLength }}
                 />
 
                 {/* Timeline marker diamond */}
-                <div className="relative z-20">
+                <div className="relative z-20" aria-hidden={timelineLayout.isCompact}>
                   <div
-                    className={`w-3 h-3 rotate-45 border border-slate-950 shadow-[0_0_6px_rgba(245,158,11,0.7)] transition-colors duration-500 ${
+                    className={`${timelineLayout.isCompact ? "w-4 h-4" : "w-3 h-3"} rotate-45 border border-slate-950 shadow-[0_0_6px_rgba(245,158,11,0.7)] transition-colors duration-500 ${
                       isTargetGroup
                         ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,1)]"
                         : item.updatedRecently
@@ -1567,12 +1756,14 @@ export default function TimelinePage({
                   />
                 </div>
 
-                {/* Outer Card Wrapper */}
-                <div
-                  className={`absolute w-48 z-30 ${
-                    isTop ? "bottom-[calc(50%+64px)]" : "top-[calc(50%+64px)]"
-                  }`}
-                >
+                {!timelineLayout.isCompact && (
+                  <div
+                    className="absolute w-48 z-30"
+                    style={{
+                      [isTop ? "bottom" : "top"]:
+                        `calc(50% + ${connectorLength}px)`,
+                    }}
+                  >
                   <div className="relative w-full">
                     {/* FANNED STACKED BACK CARDS FOR GROUPS */}
                     {isGroup && (
@@ -1775,7 +1966,8 @@ export default function TimelinePage({
                       )}
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}
