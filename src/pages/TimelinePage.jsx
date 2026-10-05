@@ -1497,7 +1497,6 @@ export default function TimelinePage({
               )}
             </div>
           ) : filteredDisplayItems.map((item, index) => {
-            const previousItem = filteredDisplayItems[index - 1];
             const isTop = index % 2 === 0;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
