@@ -39,6 +39,7 @@ export default function TimelinePage({
   onAddTextNote,
   onUpdateTextNote,
   onAuthenticationError,
+  canEdit = false,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
@@ -815,6 +816,7 @@ export default function TimelinePage({
   // Save Group
   // ---------------------------------------------------------------------------
   const handleSaveGroup = (groupData) => {
+    if (!canEdit) return;
     const fileIds = [...new Set(selectedIds)];
     const anchorId = groupAnchorItem
       ? String(groupAnchorItem.fileId || groupAnchorItem.id)
@@ -872,6 +874,7 @@ export default function TimelinePage({
   // Add selected photos to an existing group
   // ---------------------------------------------------------------------------
   const handleAddToExistingGroup = () => {
+    if (!canEdit) return;
     if (!targetGroupId || selectedIds.length === 0) return;
 
     const updated = items
@@ -912,6 +915,7 @@ export default function TimelinePage({
   // remove the now-empty group so the evidence returns to the timeline alone.
   // ---------------------------------------------------------------------------
   const handleUngroupCurrentEvidence = async () => {
+    if (!canEdit) return;
     const group = items.find(
       (item) =>
         item.id === modalGroup?.groupId && item.type === "event_group",
@@ -953,6 +957,7 @@ export default function TimelinePage({
   // Remove every member from this group and delete the group record.
   // ---------------------------------------------------------------------------
   const performUngroupEntireGroup = async (groupId) => {
+    if (!canEdit) return;
     const group = items.find(
       (item) => item.id === groupId && item.type === "event_group",
     );
@@ -987,6 +992,7 @@ export default function TimelinePage({
   };
 
   const handleUngroupEntireGroup = (groupId = modalGroup?.groupId) => {
+    if (!canEdit) return;
     const group = items.find(
       (item) => item.id === groupId && item.type === "event_group",
     );
@@ -1005,6 +1011,7 @@ export default function TimelinePage({
   // Select an existing group as the destination for selected photos
   // ---------------------------------------------------------------------------
   const selectTargetGroup = (groupId) => {
+    if (!canEdit || !isGroupingMode) return;
     if (!isGroupingMode) return;
 
     setTargetGroupId((prev) => (prev === groupId ? null : groupId));
@@ -1014,6 +1021,7 @@ export default function TimelinePage({
   // Save Timeline Edit
   // ---------------------------------------------------------------------------
   const handleSave = async (id) => {
+    if (!canEdit) return;
     const newTimestamp = editDate ? new Date(editDate).getTime() : null;
     const d = newTimestamp ? new Date(newTimestamp) : null;
 
@@ -1074,6 +1082,7 @@ export default function TimelinePage({
   };
 
   const startEditing = (item) => {
+    if (!canEdit) return;
     setEditingId(item.id);
     setEditTitle(item.title || "");
     setEditMemo(item.memo || item.note || "");
@@ -1088,6 +1097,7 @@ export default function TimelinePage({
   };
 
   const handleSaveTextNote = async (noteData) => {
+    if (!canEdit) return;
     setIsUploadingNote(true);
     try {
       if (textNoteBeingEdited) {
@@ -1138,6 +1148,7 @@ export default function TimelinePage({
   // Selection logic
   // ---------------------------------------------------------------------------
   const toggleSelection = (id, shiftKey = false) => {
+    if (!canEdit || !isGroupingMode) return;
     if (!isGroupingMode) return;
 
     setSelectedIds((prev) => {
@@ -1301,7 +1312,7 @@ export default function TimelinePage({
           </span>
         </div>
         <div className="flex items-center gap-2 pointer-events-auto">
-          {!isGroupingMode && (
+          {canEdit && !isGroupingMode && (
             <>
               <button
                 onClick={() => {
@@ -1368,7 +1379,7 @@ export default function TimelinePage({
             </div>
           ) : filteredDisplayItems.map((item, index) => {
             const isTop = index % 2 === 0;
-            const isEditing = editingId === item.id;
+            const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
             const isGroup = item.type === "event_group";
@@ -1489,7 +1500,7 @@ export default function TimelinePage({
                             {item.timeFormatted}
                           </span>
 
-                          {!isEditing && !isGroupingMode && (
+                          {canEdit && !isEditing && !isGroupingMode && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1627,7 +1638,7 @@ export default function TimelinePage({
                             </button>
                           )}
 
-                          {isGroup && !isGroupingMode && (
+                          {canEdit && isGroup && !isGroupingMode && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1654,7 +1665,7 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       {/* Floating Grouping Action Bar */}
       {/* ------------------------------------------------------------------- */}
-      {isGroupingMode && (
+      {canEdit && isGroupingMode && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-sm font-medium text-slate-200">
@@ -1709,7 +1720,7 @@ export default function TimelinePage({
       {/* Create Group Modal */}
       {/* ------------------------------------------------------------------- */}
       <GroupModal
-        isOpen={showGroupModal}
+        isOpen={canEdit && showGroupModal}
         selectedCount={selectedIds.length}
         defaultDate={firstImageDateTime}
         onClose={() => setShowGroupModal(false)}
@@ -1717,7 +1728,7 @@ export default function TimelinePage({
       />
 
       <TextNoteModal
-        isOpen={showTextNoteModal}
+        isOpen={canEdit && showTextNoteModal}
         isSaving={isUploadingNote}
         note={textNoteBeingEdited}
         onClose={closeTextNoteModal}
@@ -1734,7 +1745,7 @@ export default function TimelinePage({
         />
       )}
 
-      <EvidenceViewerModal state={viewerState} actions={viewerActions} />
+      <EvidenceViewerModal state={viewerState} actions={viewerActions} canEdit={canEdit} />
       <AppDialog dialog={appDialog} onClose={() => setAppDialog(null)} />
     </div>
   );

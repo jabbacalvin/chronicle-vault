@@ -29,7 +29,15 @@ export async function loadDriveData(accessToken, folderId) {
     const files = data.files || [];
 
     const configFile = files.find((f) => f.name === "timeline-config.json");
-    let configData = { overrides: {}, virtualEntries: [], groups: [] };
+    let configData = {
+      overrides: {},
+      virtualEntries: [],
+      groups: [],
+      accessControl: {
+        ownerEmail: "jabbacalvin@gmail.com",
+        adminEmails: ["jabbacalvin@gmail.com"],
+      },
+    };
 
     if (configFile) {
       const configRes = await fetch(
@@ -51,6 +59,10 @@ export async function loadDriveData(accessToken, folderId) {
               overrides: {},
               virtualEntries: [],
               groups: [],
+              accessControl: {
+                ownerEmail: "jabbacalvin@gmail.com",
+                adminEmails: ["jabbacalvin@gmail.com"],
+              },
               ...JSON.parse(text),
             };
           } catch (parseError) {
@@ -318,6 +330,10 @@ export async function saveConfigToDrive(
       overrides: {},
       virtualEntries: [],
       groups: [],
+      accessControl: {
+        ownerEmail: "jabbacalvin@gmail.com",
+        adminEmails: ["jabbacalvin@gmail.com"],
+      },
     };
 
     // -------------------------------------------------------------------------
@@ -363,6 +379,12 @@ export async function saveConfigToDrive(
                 configData.groups !== undefined
                   ? configData.groups
                   : existingConfig.groups || [],
+
+              // Keep the app administrator list with the rest of this vault config.
+              accessControl:
+                configData.accessControl !== undefined
+                  ? configData.accessControl
+                  : existingConfig.accessControl || mergedConfig.accessControl,
             };
           } catch (parseError) {
             console.warn(
@@ -423,6 +445,7 @@ export async function saveConfigToDrive(
 
       virtualEntries: configData.virtualEntries || [],
       groups: configData.groups || [],
+      accessControl: configData.accessControl || mergedConfig.accessControl,
     };
 
     const fileContent = JSON.stringify(mergedConfig, null, 2);

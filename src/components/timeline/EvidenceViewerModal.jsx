@@ -6,7 +6,7 @@ import {
   X,
 } from "lucide-react";
 
-export default function EvidenceViewerModal({ state, actions }) {
+export default function EvidenceViewerModal({ state, actions, canEdit = false }) {
   const {
     modalGroup,
     currentModalPhoto,
@@ -72,7 +72,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                 </span>
               )}
 
-              {currentModalPhoto?.type === "text_note" && (
+              {canEdit && currentModalPhoto?.type === "text_note" && (
                 <button
                   onClick={() => {
                     setTextNoteBeingEdited(currentModalPhoto);
@@ -100,7 +100,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                   </button>
                 )}
 
-              {modalGroup.isEventGroup &&
+              {canEdit && modalGroup.isEventGroup &&
                 currentModalPhoto &&
                 !isEditingModalGroup &&
                 !isEditingModalDetails && (
@@ -256,7 +256,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                               {modalGroup.groupTimeFormatted || "Time unavailable"}
                             </p>
                           </div>
-                          <button
+                          {canEdit && <button
                             type="button"
                             onClick={handleStartEditingModalGroup}
                             className="absolute right-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
@@ -264,7 +264,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                             aria-label="Edit group title, date, time, and memo"
                           >
                             <Edit3 className="w-4 h-4" />
-                          </button>
+                          </button>}
                         </div>
                         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
                           <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400 text-center">
@@ -361,7 +361,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                           currentModalPhoto.name ||
                           "Untitled Evidence"}
                       </h2>
-                      <button
+                      {canEdit && <button
                         type="button"
                         onClick={handleStartEditingModalDetails}
                         className="absolute right-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
@@ -369,7 +369,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                         aria-label="Edit evidence details"
                       >
                         <Edit3 className="w-4 h-4" />
-                      </button>
+                      </button>}
                     </div>
                     <p className="mt-1 text-xs text-slate-400 text-center">
                       {currentModalPhoto.dateFormatted} ·{" "}

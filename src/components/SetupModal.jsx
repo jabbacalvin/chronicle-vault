@@ -38,22 +38,36 @@ export default function SetupModal({ onSave }) {
       return;
     }
 
-    // Initialize Google Identity Services token client with full drive scope
+    // Request the Google account email so Chronicle Vault can apply its
+    // administrator list to the signed-in identity.
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      scope: "https://www.googleapis.com/auth/drive",
+      scope: "openid email https://www.googleapis.com/auth/drive",
       prompt: "",
-      callback: (tokenResponse) => {
-        if (tokenResponse && tokenResponse.access_token) {
+      callback: async (tokenResponse) => {
+        if (!tokenResponse?.access_token) return;
+        try {
+          const profileResponse = await fetch(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } },
+          );
+          if (!profileResponse.ok) throw new Error("Could not verify your Google account.");
+          const profile = await profileResponse.json();
+          if (!profile.email || profile.email_verified === false) {
+            throw new Error("Google did not return a verified email for this account.");
+          }
           const config = {
             clientId,
             folderId: resolvedFolderId,
             accessToken: tokenResponse.access_token,
+            userEmail: profile.email,
           };
           localStorage.setItem("chronicle_client_id", clientId);
           // Keep the raw user input (full URL) in local storage as requested
           localStorage.setItem("chronicle_folder_id", folderInput.trim());
           onSave(config);
+        } catch (profileError) {
+          setError(profileError.message || "Could not verify your Google account.");
         }
       },
     });
@@ -70,8 +84,8 @@ export default function SetupModal({ onSave }) {
             Drive Vault
           </h2>
           <p className="text-xs text-slate-400">
-            Sign in with Google to allow Chronicle Vault to read your evidence
-            and save edits directly to your `.json` config file.
+            Sign in with Google to read evidence from your Drive folder. Access
+            to editing tools is based on this vault’s administrator list.
           </p>
         </div>
 

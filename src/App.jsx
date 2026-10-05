@@ -8,7 +8,26 @@ import {
   updateTextNoteInDrive,
   isGoogleDriveAuthorizationError,
 } from "./services/googleDriveService";
-import { Settings } from "lucide-react";
+import { Settings, ShieldCheck } from "lucide-react";
+import AdminAccessModal from "./components/AdminAccessModal";
+
+const VAULT_OWNER_EMAIL = "jabbacalvin@gmail.com";
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const normalizeVaultConfigData = (data = {}) => {
+  const configuredAdmins = Array.isArray(data.accessControl?.adminEmails)
+    ? data.accessControl.adminEmails
+    : [];
+  return {
+    overrides: {},
+    virtualEntries: [],
+    groups: [],
+    ...data,
+    accessControl: {
+      ownerEmail: VAULT_OWNER_EMAIL,
+      adminEmails: [...new Set([VAULT_OWNER_EMAIL, ...configuredAdmins].map(normalizeEmail))],
+    },
+  };
+};
 
 const buildTextNoteTimelineItem = ({
   id,
@@ -50,15 +69,12 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [showSetup, setShowSetup] = useState(!config);
+  const [showSetup, setShowSetup] = useState(!config?.userEmail);
+  const [showAdminManager, setShowAdminManager] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [images, setImages] = useState([]);
   const [error, setError] = useState(null);
-  const [configData, setConfigData] = useState({
-    overrides: {},
-    virtualEntries: [],
-    groups: [],
-  });
+  const [configData, setConfigData] = useState(() => normalizeVaultConfigData());
   const [configFileId, setConfigFileId] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState(
     config ? "connecting" : "disconnected",
@@ -70,6 +86,8 @@ export default function App() {
       : null;
     return savedAt && Number.isFinite(Number(savedAt)) ? Number(savedAt) : null;
   });
+  const adminEmails = configData.accessControl.adminEmails;
+  const isAdmin = adminEmails.includes(normalizeEmail(config?.userEmail));
 
   const showSetupForAuthorizationError = useCallback((err) => {
     if (!isGoogleDriveAuthorizationError(err)) return false;
@@ -96,7 +114,7 @@ export default function App() {
     document.body.style.margin = "0";
     document.body.style.height = "100vh";
 
-    if (!config) return;
+    if (!config?.userEmail) return;
 
     async function fetchData() {
       try {
@@ -104,13 +122,7 @@ export default function App() {
         setError(null);
         const result = await loadDriveData(config.accessToken, config.folderId);
         setImages(result.items || []);
-        setConfigData(
-          result.configData || {
-            overrides: {},
-            virtualEntries: [],
-            groups: [],
-          },
-        );
+        setConfigData(normalizeVaultConfigData(result.configData));
         setConfigFileId(result.configFileId);
         setConnectionStatus("connected");
       } catch (err) {
@@ -139,8 +151,38 @@ export default function App() {
     setShowSetup(false);
   };
 
+  const handleSaveAdminEmails = async (emails) => {
+    if (!isAdmin || !config) {
+      throw new Error("Only a vault admin can manage administrator access.");
+    }
+
+    const updatedConfigData = normalizeVaultConfigData({
+      ...configData,
+      accessControl: {
+        ownerEmail: VAULT_OWNER_EMAIL,
+        adminEmails: emails,
+      },
+    });
+
+    try {
+      setSaveStatus("saving");
+      const savedConfigData = await saveConfigToDrive(
+        config.accessToken,
+        config.folderId,
+        configFileId,
+        updatedConfigData,
+        setConfigFileId,
+      );
+      setConfigData(normalizeVaultConfigData(savedConfigData || updatedConfigData));
+      markSaved();
+    } catch (err) {
+      if (!showSetupForAuthorizationError(err)) setSaveStatus("failed");
+      throw err;
+    }
+  };
+
   const handleSaveEdit = async (updatedItems) => {
-    if (!config) return;
+    if (!isAdmin || !config) return;
 
     try {
       const newOverrides = { ...(configData.overrides || {}) };
@@ -235,7 +277,7 @@ export default function App() {
   };
 
   const handleAddTextNote = async ({ title, content, timestamp }) => {
-    if (!config) return;
+    if (!isAdmin || !config) return;
 
     try {
       setSaveStatus("saving");
@@ -291,7 +333,7 @@ export default function App() {
     noteId,
     { title, content, timestamp },
   ) => {
-    if (!config) return;
+    if (!isAdmin || !config) return;
 
     try {
       setSaveStatus("saving");
@@ -401,6 +443,11 @@ export default function App() {
           <span className="font-semibold tracking-wider uppercase">
             Chronicle Vault
           </span>
+          {config?.userEmail && (
+            <span className={`ml-2 rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${isAdmin ? "border-emerald-800 text-emerald-300" : "border-slate-700 text-slate-400"}`}>
+              {isAdmin ? "Admin" : "View only"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <div
@@ -425,12 +472,24 @@ export default function App() {
             </div>
           )}
           {config && (
-            <button
-              onClick={() => setShowSetup(true)}
-              className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition cursor-pointer"
-            >
-              <Settings className="w-3.5 h-3.5" /> Configure Vault
-            </button>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdminManager(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-mono text-slate-300 hover:text-white bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Manage Admins</span>
+                  <span className="sm:hidden">Admins</span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowSetup(true)}
+                className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5" /> Configure Vault
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -448,9 +507,19 @@ export default function App() {
             onAddTextNote={handleAddTextNote}
             onAuthenticationError={showSetupForAuthorizationError}
             onUpdateTextNote={handleUpdateTextNote}
+            canEdit={isAdmin}
           />
         )}
       </main>
+
+      {showAdminManager && isAdmin && (
+        <AdminAccessModal
+          ownerEmail={VAULT_OWNER_EMAIL}
+          adminEmails={adminEmails}
+          onClose={() => setShowAdminManager(false)}
+          onSave={handleSaveAdminEmails}
+        />
+      )}
     </div>
   );
 }
