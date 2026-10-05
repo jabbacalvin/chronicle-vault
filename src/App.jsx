@@ -95,7 +95,7 @@ export default function App() {
 
   const handleSaveConfig = (newConfig) => {
     setConnectionStatus("connecting");
-    setSaveStatus("idle");
+    if (newConfig.folderId !== config?.folderId) setSaveStatus("idle");
     const savedAt = newConfig.folderId
       ? localStorage.getItem(`chronicle_vault_last_saved_at:${newConfig.folderId}`)
       : null;
