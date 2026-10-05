@@ -22,7 +22,7 @@ export default function AdminAccessModal({
 
   const addEmail = () => {
     const email = normalizeEmail(newEmail);
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Enter a valid email address.");
       return;
     }
@@ -50,7 +50,7 @@ export default function AdminAccessModal({
 
   const transferOwnership = async () => {
     const email = normalizeEmail(newOwnerEmail);
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Enter a valid email address for the new owner.");
       return;
     }
