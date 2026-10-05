@@ -10,6 +10,40 @@ import {
 } from "./services/googleDriveService";
 import { Settings } from "lucide-react";
 
+const buildTextNoteTimelineItem = ({
+  id,
+  title,
+  content,
+  timestamp,
+  groupId = null,
+}) => {
+  const date = new Date(Number(timestamp));
+
+  return {
+    id,
+    fileId: id,
+    type: "text_note",
+    mimeType: "text/plain",
+    groupId,
+    title,
+    memo: content,
+    note: content,
+    noteContent: content,
+    timestamp: date.getTime(),
+    dateFormatted: date.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    timeFormatted: date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    imageUrl: null,
+    hasGps: false,
+  };
+};
+
 export default function App() {
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem("chronicle_vault_config");
@@ -230,15 +264,20 @@ export default function App() {
         config.folderId,
         configFileId,
         updatedConfigData,
+        setConfigFileId,
       );
 
       setConfigData(savedConfigData || updatedConfigData);
-      const result = await loadDriveData(config.accessToken, config.folderId);
-      setImages(result.items || []);
-      setConfigData(
-        result.configData || { overrides: {}, virtualEntries: [], groups: [] },
-      );
-      setConfigFileId(result.configFileId);
+      setImages((currentItems) => [
+        ...currentItems.filter((item) => item.id !== uploadedNote.id),
+        buildTextNoteTimelineItem({
+          id: uploadedNote.id,
+          title,
+          content,
+          timestamp,
+          groupId: noteOverride.groupId || null,
+        }),
+      ]);
       markSaved();
     } catch (err) {
       if (!showSetupForAuthorizationError(err)) {
@@ -282,15 +321,26 @@ export default function App() {
         config.folderId,
         configFileId,
         updatedConfigData,
+        setConfigFileId,
       );
 
       setConfigData(savedConfigData || updatedConfigData);
-      const result = await loadDriveData(config.accessToken, config.folderId);
-      setImages(result.items || []);
-      setConfigData(
-        result.configData || { overrides: {}, virtualEntries: [], groups: [] },
+      setImages((currentItems) =>
+        currentItems.map((item) =>
+          item.id === noteId
+            ? {
+                ...item,
+                ...buildTextNoteTimelineItem({
+                  id: noteId,
+                  title,
+                  content,
+                  timestamp,
+                  groupId: item.groupId || preservedOverride.groupId || null,
+                }),
+              }
+            : item,
+        ),
       );
-      setConfigFileId(result.configFileId);
       markSaved();
     } catch (err) {
       if (!showSetupForAuthorizationError(err)) {
