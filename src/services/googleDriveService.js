@@ -33,10 +33,6 @@ export async function loadDriveData(accessToken, folderId) {
       overrides: {},
       virtualEntries: [],
       groups: [],
-      accessControl: {
-        ownerEmail: "jabbacalvin@gmail.com",
-        adminEmails: ["jabbacalvin@gmail.com"],
-      },
     };
 
     if (configFile) {
@@ -59,10 +55,6 @@ export async function loadDriveData(accessToken, folderId) {
               overrides: {},
               virtualEntries: [],
               groups: [],
-              accessControl: {
-                ownerEmail: "jabbacalvin@gmail.com",
-                adminEmails: ["jabbacalvin@gmail.com"],
-              },
               ...JSON.parse(text),
             };
           } catch (parseError) {
@@ -330,10 +322,6 @@ export async function saveConfigToDrive(
       overrides: {},
       virtualEntries: [],
       groups: [],
-      accessControl: {
-        ownerEmail: "jabbacalvin@gmail.com",
-        adminEmails: ["jabbacalvin@gmail.com"],
-      },
     };
 
     // -------------------------------------------------------------------------
