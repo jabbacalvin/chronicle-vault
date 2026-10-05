@@ -311,6 +311,7 @@ export async function saveConfigToDrive(
   folderId,
   configFileId,
   configData,
+  onConfigFileId,
 ) {
   try {
     let mergedConfig = {
@@ -405,6 +406,7 @@ export async function saveConfigToDrive(
         throw createDriveApiError("Failed to update timeline-config.json", updateRes);
       }
 
+      onConfigFileId?.(configFileId);
       return mergedConfig;
     }
 
@@ -462,6 +464,8 @@ export async function saveConfigToDrive(
       throw createDriveApiError("Failed to create timeline-config.json", createRes);
     }
 
+    const createdConfig = await createRes.json();
+    if (createdConfig.id) onConfigFileId?.(createdConfig.id);
     return mergedConfig;
   } catch (err) {
     console.error("Error saving config to Drive:", err);
