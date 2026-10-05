@@ -10,6 +10,7 @@ import {
   Layers,
   CheckSquare,
   FileText,
+  Search,
 } from "lucide-react";
 import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
@@ -54,6 +55,9 @@ export default function TimelinePage({
   const [isUploadingNote, setIsUploadingNote] = useState(false);
 
   const [items, setItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchStartDate, setSearchStartDate] = useState("");
+  const [searchEndDate, setSearchEndDate] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editMemo, setEditMemo] = useState("");
@@ -199,6 +203,57 @@ export default function TimelinePage({
           a.timestamp - b.timestamp || String(a.id).localeCompare(String(b.id)),
       );
   }, [items]);
+
+  // Search across visible timeline entries and the evidence contained in groups.
+  // Date filters use each entry's effective timeline timestamp; groups also match
+  // when any evidence inside the group falls within the selected range.
+  const filteredDisplayItems = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    const startTimestamp = searchStartDate
+      ? new Date(`${searchStartDate}T00:00:00`).getTime()
+      : null;
+    const endTimestamp = searchEndDate
+      ? new Date(`${searchEndDate}T23:59:59.999`).getTime()
+      : null;
+    const searchableFields = [
+      "title",
+      "name",
+      "memo",
+      "note",
+      "noteContent",
+      "dateFormatted",
+      "timeFormatted",
+      "id",
+      "fileId",
+    ];
+
+    return displayItems.filter((item) => {
+      const groupEvidence =
+        item.type === "event_group" ? item.photos || [] : [];
+      const searchableEntries = [item, ...groupEvidence];
+      const matchesQuery =
+        !query ||
+        searchableEntries.some((entry) =>
+          searchableFields.some((field) =>
+            String(entry[field] ?? "").toLocaleLowerCase().includes(query),
+          ),
+        );
+
+      if (!matchesQuery) return false;
+      if (!searchStartDate && !searchEndDate) return true;
+
+      const timestamps = [
+        item.timestamp,
+        ...groupEvidence.map((entry) => entry.timestamp),
+      ].filter(Number.isFinite);
+
+      return timestamps.some(
+        (timestamp) =>
+          (startTimestamp === null || timestamp >= startTimestamp) &&
+          (endTimestamp === null || timestamp <= endTimestamp),
+      );
+    });
+  }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
 
   const selectedImages = useMemo(
     () =>
@@ -1190,38 +1245,92 @@ export default function TimelinePage({
   return (
     <div className="w-full h-full flex flex-col overflow-hidden select-none bg-slate-950 m-0 p-0 relative">
       {/* ------------------------------------------------------------------- */}
-      {/* Top right grouping action button */}
-      {/* ------------------------------------------------------------------- */}
-      <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
-        {!isGroupingMode && (
-          <>
+      {/* Timeline search and actions */}
+      <div className="absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+          <label className="relative flex items-center">
+            <Search className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search title, memo, or note..."
+              aria-label="Search evidence titles, memos, and note content"
+              className="w-56 sm:w-64 pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 hover:border-slate-500 focus:border-amber-500 rounded-md text-xs text-slate-100 placeholder:text-slate-500 outline-none shadow-lg"
+            />
+          </label>
+          <label className="flex items-center gap-2 px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-md text-[10px] font-mono uppercase tracking-wider text-slate-400 shadow-lg">
+            From
+            <input
+              type="date"
+              value={searchStartDate}
+              max={searchEndDate || undefined}
+              onChange={(event) => setSearchStartDate(event.target.value)}
+              aria-label="Search from date"
+              className="w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
+            />
+          </label>
+          <label className="flex items-center gap-2 px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-md text-[10px] font-mono uppercase tracking-wider text-slate-400 shadow-lg">
+            To
+            <input
+              type="date"
+              value={searchEndDate}
+              min={searchStartDate || undefined}
+              onChange={(event) => setSearchEndDate(event.target.value)}
+              aria-label="Search through date"
+              className="w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
+            />
+          </label>
+          {(searchQuery || searchStartDate || searchEndDate) && (
             <button
+              type="button"
               onClick={() => {
-                setTextNoteBeingEdited(null);
-                setShowTextNoteModal(true);
+                setSearchQuery("");
+                setSearchStartDate("");
+                setSearchEndDate("");
               }}
-              disabled={isUploadingNote}
-              className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer disabled:opacity-60"
+              className="p-2 bg-slate-900 border border-slate-700 hover:border-amber-500 rounded-md text-slate-300 hover:text-amber-400 shadow-lg transition-colors cursor-pointer"
+              title="Clear search and date filters"
+              aria-label="Clear search and date filters"
             >
-              <FileText className="w-3.5 h-3.5" />
-              {isUploadingNote ? "Saving Note..." : "Add .txt Evidence"}
+              <X className="w-4 h-4" />
             </button>
-            {displayItems.length > 0 && (
+          )}
+          <span className="px-2 py-1 rounded bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-slate-400 shadow-lg" aria-live="polite">
+            {filteredDisplayItems.length} / {displayItems.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {!isGroupingMode && (
+            <>
               <button
                 onClick={() => {
-                  setIsGroupingMode(true);
-                  setTargetGroupId(null);
-                  setSelectedIds([]);
-                  setSelectionAnchorId(null);
+                  setTextNoteBeingEdited(null);
+                  setShowTextNoteModal(true);
                 }}
-                className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
+                disabled={isUploadingNote}
+                className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer disabled:opacity-60"
               >
-                <Layers className="w-3.5 h-3.5" />
-                Group Evidences
+                <FileText className="w-3.5 h-3.5" />
+                {isUploadingNote ? "Saving Note..." : "Add .txt Evidence"}
               </button>
-            )}
-          </>
-        )}
+              {displayItems.length > 0 && (
+                <button
+                  onClick={() => {
+                    setIsGroupingMode(true);
+                    setTargetGroupId(null);
+                    setSelectedIds([]);
+                    setSelectionAnchorId(null);
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-300 rounded text-xs flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  Group Evidences
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------- */}
@@ -1231,11 +1340,33 @@ export default function TimelinePage({
         ref={containerRef}
         className="w-full flex-1 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
-        <div className="min-h-full w-max flex items-center gap-12 pl-12 pr-16 relative">
-          {/* Timeline center line */}
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none" />
+        <div
+          className={`min-h-full relative ${
+            filteredDisplayItems.length > 0
+              ? "w-max flex items-center gap-12 pl-12 pr-16"
+              : "w-full flex items-center justify-center"
+          }`}
+        >
+          {filteredDisplayItems.length > 0 && (
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 shadow-md shadow-amber-500/20 -translate-y-1/2 z-0 pointer-events-none" />
+          )}
 
-          {displayItems.map((item, index) => {
+          {filteredDisplayItems.length === 0 ? (
+            <div className="px-6 text-center">
+              <p className="text-sm text-slate-300">
+                {isLoading
+                  ? "Loading evidence..."
+                  : items.length === 0
+                    ? "No evidence to display."
+                    : "No evidence matches these filters."}
+              </p>
+              {items.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Try another search term or adjust the date range.
+                </p>
+              )}
+            </div>
+          ) : filteredDisplayItems.map((item, index) => {
             const isTop = index % 2 === 0;
             const isEditing = editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
