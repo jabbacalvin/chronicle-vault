@@ -30,6 +30,24 @@ const toDateTimeLocalValue = (timestamp) => {
   return localDate.toISOString().slice(0, 16);
 };
 
+const TIMELINE_PIXELS_PER_HOUR = 6;
+const MIN_TIMELINE_ITEM_GAP = 12;
+
+const getTimelineItemGap = (previousTimestamp, currentTimestamp) => {
+  const elapsedMilliseconds = Math.max(
+    0,
+    Number(currentTimestamp) - Number(previousTimestamp),
+  );
+  const elapsedHours = elapsedMilliseconds / (60 * 60 * 1000);
+
+  // Preserve a little breathing room for events at the same or nearby times;
+  // larger time differences then expand linearly along the horizontal axis.
+  return Math.max(
+    MIN_TIMELINE_ITEM_GAP,
+    elapsedHours * TIMELINE_PIXELS_PER_HOUR,
+  );
+};
+
 export default function TimelinePage({
   images,
   isLoading,
@@ -1354,7 +1372,7 @@ export default function TimelinePage({
         <div
           className={`min-h-full relative ${
             filteredDisplayItems.length > 0
-              ? "w-max flex items-center gap-12 pl-12 pr-16"
+              ? "w-max flex items-center pl-12 pr-16"
               : "w-full flex items-center justify-center"
           }`}
         >
@@ -1378,6 +1396,10 @@ export default function TimelinePage({
               )}
             </div>
           ) : filteredDisplayItems.map((item, index) => {
+            const previousItem = filteredDisplayItems[index - 1];
+            const timelineGap = previousItem
+              ? getTimelineItemGap(previousItem.timestamp, item.timestamp)
+              : 0;
             const isTop = index % 2 === 0;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
@@ -1418,6 +1440,7 @@ export default function TimelinePage({
               <div
                 key={item.id}
                 ref={(el) => (cardRefs.current[item.id] = el)}
+                style={{ marginInlineStart: timelineGap }}
                 className={`relative shrink-0 w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass}`}
                 onClick={(e) => {
                   if (isGroup) {
