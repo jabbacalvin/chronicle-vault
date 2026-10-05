@@ -11,11 +11,11 @@ import {
 import { Settings, ShieldCheck } from "lucide-react";
 import AdminAccessModal from "./components/AdminAccessModal";
 
-const VAULT_OWNER_EMAIL = "jabbacalvin@gmail.com";
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizeVaultConfigData = (data = {}) => {
+  const ownerEmail = normalizeEmail(data.accessControl?.ownerEmail);
   const configuredAdmins = Array.isArray(data.accessControl?.adminEmails)
-    ? data.accessControl.adminEmails
+    ? data.accessControl.adminEmails.map(normalizeEmail).filter(Boolean)
     : [];
   return {
     overrides: {},
@@ -23,8 +23,8 @@ const normalizeVaultConfigData = (data = {}) => {
     groups: [],
     ...data,
     accessControl: {
-      ownerEmail: VAULT_OWNER_EMAIL,
-      adminEmails: [...new Set([VAULT_OWNER_EMAIL, ...configuredAdmins].map(normalizeEmail))],
+      ...(ownerEmail ? { ownerEmail } : {}),
+      adminEmails: [...new Set([ownerEmail, ...configuredAdmins].filter(Boolean))],
     },
   };
 };
@@ -86,8 +86,10 @@ export default function App() {
       : null;
     return savedAt && Number.isFinite(Number(savedAt)) ? Number(savedAt) : null;
   });
+  const ownerEmail = configData.accessControl.ownerEmail || "";
   const adminEmails = configData.accessControl.adminEmails;
-  const isAdmin = adminEmails.includes(normalizeEmail(config?.userEmail));
+  const isOwner = !!ownerEmail && normalizeEmail(ownerEmail) === normalizeEmail(config?.userEmail);
+  const isAdmin = isOwner || adminEmails.includes(normalizeEmail(config?.userEmail));
 
   const showSetupForAuthorizationError = useCallback((err) => {
     if (!isGoogleDriveAuthorizationError(err)) return false;
@@ -122,8 +124,41 @@ export default function App() {
         setError(null);
         const result = await loadDriveData(config.accessToken, config.folderId);
         setImages(result.items || []);
-        setConfigData(normalizeVaultConfigData(result.configData));
-        setConfigFileId(result.configFileId);
+        let loadedConfigData = normalizeVaultConfigData(result.configData);
+        let loadedConfigFileId = result.configFileId;
+
+        // Claim an uninitialized vault for the first signed-in account that can
+        // write to its Drive folder. The owner email lives only in this vault's
+        // config file, so every vault has its own independent owner.
+        if (!loadedConfigData.accessControl.ownerEmail) {
+          const initialOwnerEmail = normalizeEmail(config.userEmail);
+          if (initialOwnerEmail) {
+            const initializedConfigData = normalizeVaultConfigData({
+              ...loadedConfigData,
+              accessControl: {
+                ownerEmail: initialOwnerEmail,
+                adminEmails: [initialOwnerEmail],
+              },
+            });
+            try {
+              loadedConfigData = await saveConfigToDrive(
+                config.accessToken,
+                config.folderId,
+                loadedConfigFileId,
+                initializedConfigData,
+                (fileId) => { loadedConfigFileId = fileId; setConfigFileId(fileId); },
+              );
+              loadedConfigData = normalizeVaultConfigData(loadedConfigData || initializedConfigData);
+            } catch (bootstrapError) {
+              if (isGoogleDriveAuthorizationError(bootstrapError)) throw bootstrapError;
+              console.warn("Could not initialize vault ownership with this account.", bootstrapError);
+              setError("This vault has no owner yet. Connect with an account that can edit the Drive folder to initialize it.");
+            }
+          }
+        }
+
+        setConfigData(loadedConfigData);
+        setConfigFileId(loadedConfigFileId);
         setConnectionStatus("connected");
       } catch (err) {
         if (!showSetupForAuthorizationError(err)) {
@@ -151,17 +186,14 @@ export default function App() {
     setShowSetup(false);
   };
 
-  const handleSaveAdminEmails = async (emails) => {
-    if (!isAdmin || !config) {
-      throw new Error("Only a vault admin can manage administrator access.");
+  const saveAccessControl = async (accessControl) => {
+    if (!isOwner || !config) {
+      throw new Error("Only the vault owner can manage administrator access.");
     }
 
     const updatedConfigData = normalizeVaultConfigData({
       ...configData,
-      accessControl: {
-        ownerEmail: VAULT_OWNER_EMAIL,
-        adminEmails: emails,
-      },
+      accessControl,
     });
 
     try {
@@ -179,6 +211,22 @@ export default function App() {
       if (!showSetupForAuthorizationError(err)) setSaveStatus("failed");
       throw err;
     }
+  };
+
+  const handleSaveAdminEmails = async (emails) => {
+    await saveAccessControl({ ownerEmail, adminEmails: emails });
+  };
+
+  const handleTransferOwnership = async (newOwnerEmail) => {
+    const nextOwnerEmail = normalizeEmail(newOwnerEmail);
+    if (!nextOwnerEmail || nextOwnerEmail === normalizeEmail(ownerEmail)) {
+      throw new Error("Enter a different, valid email address.");
+    }
+    await saveAccessControl({
+      ownerEmail: nextOwnerEmail,
+      // Keep the former owner as an admin and promote the new owner.
+      adminEmails: [...new Set([...adminEmails, normalizeEmail(ownerEmail), nextOwnerEmail])],
+    });
   };
 
   const handleSaveEdit = async (updatedItems) => {
@@ -445,7 +493,7 @@ export default function App() {
           </span>
           {config?.userEmail && (
             <span className={`ml-2 rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${isAdmin ? "border-emerald-800 text-emerald-300" : "border-slate-700 text-slate-400"}`}>
-              {isAdmin ? "Admin" : "View only"}
+              {isOwner ? "Owner" : isAdmin ? "Admin" : "View only"}
             </span>
           )}
         </div>
@@ -473,7 +521,7 @@ export default function App() {
           )}
           {config && (
             <div className="flex items-center gap-2">
-              {isAdmin && (
+              {isOwner && (
                 <button
                   onClick={() => setShowAdminManager(true)}
                   className="flex items-center gap-1.5 text-[11px] font-mono text-slate-300 hover:text-white bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition cursor-pointer"
@@ -512,12 +560,13 @@ export default function App() {
         )}
       </main>
 
-      {showAdminManager && isAdmin && (
+      {showAdminManager && isOwner && (
         <AdminAccessModal
-          ownerEmail={VAULT_OWNER_EMAIL}
+          ownerEmail={ownerEmail}
           adminEmails={adminEmails}
           onClose={() => setShowAdminManager(false)}
           onSave={handleSaveAdminEmails}
+          onTransferOwnership={handleTransferOwnership}
         />
       )}
     </div>
