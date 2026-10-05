@@ -11,7 +11,6 @@ import {
   CheckSquare,
   FileText,
   Search,
-  CalendarDays,
 } from "lucide-react";
 import { heicTo } from "heic-to";
 import MapModal from "../components/map/MapModal";
@@ -1355,7 +1354,11 @@ export default function TimelinePage({
           {filteredDisplayItems.length === 0 ? (
             <div className="px-6 text-center">
               <p className="text-sm text-slate-300">
-                {items.length === 0 ? "No evidence to display." : "No evidence matches these filters."}
+                {isLoading
+                  ? "Loading evidence..."
+                  : items.length === 0
+                    ? "No evidence to display."
+                    : "No evidence matches these filters."}
               </p>
               {items.length > 0 && (
                 <p className="mt-1 text-xs text-slate-500">
