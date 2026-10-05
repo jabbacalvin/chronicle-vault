@@ -216,7 +216,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                             className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
                           />
                         </label>
-                        <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                        <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Memo
                           <textarea
                             rows={3}
@@ -329,7 +329,7 @@ export default function EvidenceViewerModal({ state, actions }) {
                       />
                     </label>
 
-                    <label className="flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                    <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                       Memo
                       <textarea
                         rows={3}
