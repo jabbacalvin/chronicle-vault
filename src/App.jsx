@@ -69,7 +69,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [showSetup, setShowSetup] = useState(!config?.userEmail);
+  const hasOAuthReturn =
+    new URLSearchParams(window.location.hash.slice(1)).get("cv_auth") === "1";
+  const [showSetup, setShowSetup] = useState(() => !config?.userEmail || hasOAuthReturn);
   const [showAdminManager, setShowAdminManager] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [images, setImages] = useState([]);
