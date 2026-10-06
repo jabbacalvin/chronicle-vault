@@ -516,7 +516,7 @@ export function calculateTimelineLayout({
     // On phones, shift the axis up slightly while retaining a small top
     // buffer for the upper cards. This gives lower cards extra room without
     // adding vertical scrolling.
-    const mobileAxisShift = viewportWidth < 640 ? 12 : 0;
+    const mobileAxisShift = viewportWidth < 640 ? 36 : 0;
     const axisY = Math.max(
       topExtent - mobileAxisShift,
       Math.min(
