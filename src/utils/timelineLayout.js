@@ -513,9 +513,16 @@ export function calculateTimelineLayout({
     // card collisions so users never need to scroll vertically.
     const canvasHeight = viewportHeight;
     const preferredAxisY = viewportHeight * 0.528;
+    // On phones, shift the axis up slightly while retaining a small top
+    // buffer for the upper cards. This gives lower cards extra room without
+    // adding vertical scrolling.
+    const mobileAxisShift = viewportWidth < 640 ? 12 : 0;
     const axisY = Math.max(
-      topExtent,
-      Math.min(preferredAxisY, canvasHeight - bottomExtent),
+      topExtent - mobileAxisShift,
+      Math.min(
+        preferredAxisY - mobileAxisShift,
+        canvasHeight - bottomExtent,
+      ),
     );
     const canvasWidth = Math.max(
       viewportWidth,
