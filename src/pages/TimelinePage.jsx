@@ -45,7 +45,13 @@ const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_CARD_AXIS_CLEARANCE = 300;
 const TIMELINE_BOTTOM_CARD_CLEARANCE = 500;
 const TIMELINE_DATE_LABEL_CLEARANCE = 180;
+const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
+const TIMELINE_DATE_LABEL_CARD_GAP = 8;
+const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
 const MIN_DATE_LABEL_SPACING = 112;
+
+const getTimelineDateLabelWidth = (label) =>
+  label.length * TIMELINE_DATE_LABEL_CHAR_WIDTH + 18;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 const getLocalDayStart = (timestamp) => {
@@ -381,6 +387,29 @@ export default function TimelinePage({
         group.entries.forEach(({ index, timeRatio }) => {
           preferredSides[index % 2].push(timeRatio);
         });
+        const dayLabel = group.dayStart.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        const labelRight = TIMELINE_DATE_LABEL_LEFT_OFFSET +
+          getTimelineDateLabelWidth(dayLabel);
+        const labelSafeCardCenter =
+          labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
+        const needsLabelClearance = group.entries.some(
+          ({ index, timeRatio }) =>
+            index % 2 === 0 &&
+            cardCenterForRatio(timeRatio, baseDayWidth) - cardHalfWidth <
+              labelRight &&
+            cardCenterForRatio(timeRatio, baseDayWidth) + cardHalfWidth >
+              TIMELINE_DATE_LABEL_LEFT_OFFSET,
+        );
+        if (needsLabelClearance) {
+          dayWidth = Math.max(
+            dayWidth,
+            labelSafeCardCenter + cardHalfWidth + cardGutter,
+          );
+        }
 
         const hasCardCollisionsAtWidth = (candidateWidth) =>
           preferredSides.some((ratios) => {
@@ -403,7 +432,7 @@ export default function TimelinePage({
             return false;
           });
 
-        let upperWidth = baseDayWidth;
+        let upperWidth = dayWidth;
         const maxDayWidth = baseDayWidth * 8;
         while (
           upperWidth < maxDayWidth &&
@@ -415,7 +444,7 @@ export default function TimelinePage({
         if (hasCardCollisionsAtWidth(upperWidth)) {
           dayWidth = upperWidth;
         } else {
-          let lowerWidth = baseDayWidth;
+          let lowerWidth = dayWidth;
           for (let iteration = 0; iteration < 24; iteration += 1) {
             const middleWidth = (lowerWidth + upperWidth) / 2;
             if (hasCardCollisionsAtWidth(middleWidth)) {
@@ -457,14 +486,17 @@ export default function TimelinePage({
       const dateX = TIMELINE_LEFT_PADDING + dayOffsets.get(group.dayOrdinal);
       const showLabel =
         index === 0 || dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
+      const label = group.dayStart.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
       dateMarkers.push({
         id: `day-${group.dayStart.getTime()}`,
+        dayOrdinal: group.dayOrdinal,
         left: dateX,
-        label: group.dayStart.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
+        label,
+        labelWidth: getTimelineDateLabelWidth(label),
         showLabel,
       });
       if (showLabel) lastDateLabelX = dateX;
@@ -477,12 +509,29 @@ export default function TimelinePage({
       const dayLeft =
         TIMELINE_LEFT_PADDING + dayOffsets.get(dayOrdinal);
       const dayRight = dayLeft + dayWidths.get(dayOrdinal);
-      const cardX = Math.min(
+      let cardX = Math.min(
         dayRight - cardHalfWidth - cardGutter,
         Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
       );
-      const leftEdge = cardX - occupiedWidth / 2;
       const preferredSide = index % 2 === 0 ? 0 : 1;
+      const dayMarker = dateMarkers.find(
+        (marker) => marker.dayOrdinal === dayOrdinal,
+      );
+      if (preferredSide === 0 && dayMarker?.showLabel) {
+        const labelLeft = dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET;
+        const labelRight = labelLeft + dayMarker.labelWidth;
+        const minCardCenter =
+          labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
+        const maxCardCenter =
+          dayRight - cardHalfWidth - cardGutter;
+        if (
+          cardX - cardHalfWidth < labelRight &&
+          cardX + cardHalfWidth > labelLeft
+        ) {
+          cardX = Math.min(maxCardCenter, Math.max(cardX, minCardCenter));
+        }
+      }
+      const leftEdge = cardX - occupiedWidth / 2;
       const otherSide = preferredSide === 0 ? 1 : 0;
       let side = preferredSide;
       let lane = laneEnds[side].findIndex((rightEdge) => rightEdge + TIMELINE_CARD_SPACING <= leftEdge);
