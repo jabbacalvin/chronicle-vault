@@ -484,9 +484,9 @@ export default function App() {
             : "";
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
-      <header className="h-12 border-b border-slate-900 bg-slate-950/85 backdrop-blur px-4 flex items-center justify-between z-45 shrink-0">
-        <div className="flex items-center gap-2 text-xs font-mono text-amber-500">
+    <div className="cv-app-shell w-full min-h-0 overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
+      <header className="cv-app-header h-12 border-b border-slate-900 bg-slate-950/85 backdrop-blur px-4 flex items-center justify-between z-45 shrink-0">
+        <div className="cv-app-brand flex items-center gap-2 text-xs font-mono text-amber-500">
           <span>⚖</span>
           <span className="font-semibold tracking-wider uppercase">
             Chronicle Vault
@@ -497,7 +497,7 @@ export default function App() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="cv-app-actions flex items-center gap-1.5 sm:gap-2">
           <div
             role="status"
             aria-live="polite"
@@ -535,7 +535,9 @@ export default function App() {
                 onClick={() => setShowSetup(true)}
                 className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition cursor-pointer"
               >
-                <Settings className="w-3.5 h-3.5" /> Configure Vault
+                <Settings className="w-3.5 h-3.5" />
+                  <span>Configure</span>
+                  <span className="hidden sm:inline"> Vault</span>
               </button>
             </div>
           )}
