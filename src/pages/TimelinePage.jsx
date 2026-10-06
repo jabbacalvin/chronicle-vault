@@ -1180,7 +1180,7 @@ export default function TimelinePage({
               style={{ left: marker.left }}
             >
               {marker.showLabel && (
-                <span className="absolute left-2 top-16 whitespace-nowrap rounded border border-sky-500/30 bg-slate-950/95 px-2 py-1 text-[10px] font-mono text-sky-200 shadow-lg">
+                <span className="cv-timeline-date-label absolute left-2 top-16 whitespace-nowrap rounded border border-sky-500/30 bg-slate-950/95 px-2 py-1 text-[10px] font-mono text-sky-200 shadow-lg">
                   {marker.label}
                 </span>
               )}
