@@ -492,8 +492,15 @@ export default function TimelinePage({
                   if (candidate < minCandidate || candidate > maxCandidate) {
                     continue;
                   }
+                  const cardHeight =
+                    measuredCardHeights[entry.item.id] || 280;
+                  const preferredAxisY =
+                    (timelineViewport.height || 600) * 0.528;
+                  const overlapsDateLabelVertically =
+                    preferredAxisY - 64 - cardHeight < 108;
                   if (
                     side === 0 &&
+                    overlapsDateLabelVertically &&
                     candidate - cardHalfWidth < labelRight &&
                     candidate + cardHalfWidth > labelLeft
                   ) {
