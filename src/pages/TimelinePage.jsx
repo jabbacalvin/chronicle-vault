@@ -48,6 +48,7 @@ const TIMELINE_DATE_LABEL_CLEARANCE = 180;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
 const TIMELINE_DATE_LABEL_CARD_GAP = 28;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
+const TIMELINE_CARD_CONNECTOR_OVERLAP = 8;
 const MIN_DATE_LABEL_SPACING = 112;
 
 const getTimelineDateLabelWidth = (label) =>
@@ -366,26 +367,28 @@ export default function TimelinePage({
       : TIMELINE_CARD_WIDTH;
     const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
     const cardGutter = 40;
+    const cardInset = cardHalfWidth + cardGutter;
+    const minimumCardDayWidth = cardInset * 2;
     const minCardCenterSeparation =
       TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING;
-    const cardCenterForRatio = (ratio, dayWidth) => {
-      const inset = cardHalfWidth + cardGutter;
-      return Math.min(
-        dayWidth - inset,
-        Math.max(inset, ratio * dayWidth),
+    const cardCenterForRatio = (ratio, dayWidth) =>
+      Math.min(
+        dayWidth - cardInset,
+        Math.max(cardInset, ratio * dayWidth),
       );
-    };
     const dayWidths = new Map();
     const dayOffsets = new Map();
     let totalDayWidth = 0;
 
     dayGroups.forEach((group) => {
-      let dayWidth = baseDayWidth;
+      let dayWidth = isCompact
+        ? baseDayWidth
+        : Math.max(baseDayWidth, minimumCardDayWidth);
 
       if (!isCompact) {
         const preferredSides = [[], []];
-        group.entries.forEach(({ index, timeRatio }) => {
-          preferredSides[index % 2].push(timeRatio);
+        group.entries.forEach((entry) => {
+          preferredSides[entry.index % 2].push(entry);
         });
         const dayLabel = group.dayStart.toLocaleDateString([], {
           month: "short",
@@ -411,15 +414,62 @@ export default function TimelinePage({
           );
         }
 
-        const hasCardCollisionsAtWidth = (candidateWidth) =>
-          preferredSides.some((ratios) => {
-            for (let index = 1; index < ratios.length; index += 1) {
-              const leftCenter = cardCenterForRatio(
-                ratios[index - 1],
+        const cardCenterForEntry = (entry, candidateWidth) => {
+          const naturalCenter = cardCenterForRatio(
+            entry.timeRatio,
+            candidateWidth,
+          );
+          if (entry.index % 2 !== 0) return naturalCenter;
+
+          const overlapsDateLabel =
+            naturalCenter - cardHalfWidth < labelRight &&
+            naturalCenter + cardHalfWidth >
+              TIMELINE_DATE_LABEL_LEFT_OFFSET;
+          return overlapsDateLabel
+            ? Math.min(
+                candidateWidth - cardInset,
+                Math.max(naturalCenter, labelSafeCardCenter),
+              )
+            : naturalCenter;
+        };
+
+        group.entries.forEach((entry) => {
+          const connectorReach =
+            cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
+          const minimumAttachedEventX =
+            entry.index % 2 === 0
+              ? Math.max(cardInset, labelSafeCardCenter) -
+                connectorReach
+              : cardInset - connectorReach;
+          const leftAttachmentWidth =
+            entry.timeRatio > 0
+              ? minimumAttachedEventX / entry.timeRatio
+              : 0;
+          const rightAttachmentWidth =
+            entry.timeRatio < 1
+              ? (cardGutter + TIMELINE_CARD_CONNECTOR_OVERLAP) /
+                (1 - entry.timeRatio)
+              : 0;
+          dayWidth = Math.max(
+            dayWidth,
+            leftAttachmentWidth,
+            rightAttachmentWidth,
+          );
+        });
+
+        const hasCardLayoutConflictsAtWidth = (candidateWidth) => {
+          const hasCollisions = preferredSides.some((entriesOnSide) => {
+            for (
+              let index = 1;
+              index < entriesOnSide.length;
+              index += 1
+            ) {
+              const leftCenter = cardCenterForEntry(
+                entriesOnSide[index - 1],
                 candidateWidth,
               );
-              const rightCenter = cardCenterForRatio(
-                ratios[index],
+              const rightCenter = cardCenterForEntry(
+                entriesOnSide[index],
                 candidateWidth,
               );
               if (
@@ -431,23 +481,37 @@ export default function TimelinePage({
             }
             return false;
           });
+          if (hasCollisions) return true;
+
+          return group.entries.some((entry) => {
+            const cardCenter = cardCenterForEntry(
+              entry,
+              candidateWidth,
+            );
+            const eventCenter = entry.timeRatio * candidateWidth;
+            return (
+              Math.abs(cardCenter - eventCenter) >
+              cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP
+            );
+          });
+        };
 
         let upperWidth = dayWidth;
         const maxDayWidth = baseDayWidth * 8;
         while (
           upperWidth < maxDayWidth &&
-          hasCardCollisionsAtWidth(upperWidth)
+          hasCardLayoutConflictsAtWidth(upperWidth)
         ) {
           upperWidth = Math.min(maxDayWidth, upperWidth * 2);
         }
 
-        if (hasCardCollisionsAtWidth(upperWidth)) {
+        if (hasCardLayoutConflictsAtWidth(upperWidth)) {
           dayWidth = upperWidth;
         } else {
           let lowerWidth = dayWidth;
           for (let iteration = 0; iteration < 24; iteration += 1) {
             const middleWidth = (lowerWidth + upperWidth) / 2;
-            if (hasCardCollisionsAtWidth(middleWidth)) {
+            if (hasCardLayoutConflictsAtWidth(middleWidth)) {
               lowerWidth = middleWidth;
             } else {
               upperWidth = middleWidth;
@@ -513,7 +577,6 @@ export default function TimelinePage({
         dayRight - cardHalfWidth - cardGutter,
         Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
       );
-      const naturalCardX = cardX;
       const preferredSide = index % 2 === 0 ? 0 : 1;
       const dayMarker = dateMarkers.find(
         (marker) => marker.dayOrdinal === dayOrdinal,
@@ -553,7 +616,7 @@ export default function TimelinePage({
       }
 
       laneEnds[side][lane] = cardX + occupiedWidth / 2;
-      entries.push({ id: item.id, x: itemX, cardX, side, lane, cardNudgeX: cardX - naturalCardX });
+      entries.push({ id: item.id, x: itemX, cardX, side, lane });
     });
 
     const topLaneCount = laneEnds[0].length;
@@ -1813,12 +1876,6 @@ export default function TimelinePage({
             const laneIndex = entryLayout.lane;
             const connectorLength =
               64 + laneIndex * TIMELINE_LANE_SPACING;
-            const connectorNudgeX = entryLayout.cardNudgeX || 0;
-            const connectorWidth = Math.abs(connectorNudgeX);
-            const connectorStartX =
-              connectorNudgeX < 0 ? connectorWidth : 0;
-            const connectorEndX =
-              connectorNudgeX < 0 ? 0 : connectorWidth;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
@@ -1897,42 +1954,12 @@ export default function TimelinePage({
                 }}
               >
                 {/* Vertical connector */}
-                {Math.abs(connectorNudgeX) > 0.5 ? (
-                  <svg
-                    aria-hidden="true"
-                    className="absolute z-0 overflow-visible pointer-events-none"
-                    style={{
-                      left: `calc(50% + ${Math.min(0, connectorNudgeX)}px)`,
-                      top: isTop
-                        ? `calc(50% - ${connectorLength}px)`
-                        : "50%",
-                      width: Math.max(1, connectorWidth),
-                      height: connectorLength,
-                    }}
-                    viewBox={`0 0 ${Math.max(1, connectorWidth)} ${connectorLength}`}
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d={
-                        isTop
-                          ? `M ${connectorStartX} ${connectorLength} L ${connectorEndX} 0`
-                          : `M ${connectorStartX} 0 L ${connectorEndX} ${connectorLength}`
-                      }
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      className="text-amber-500/80 transition-colors duration-150 group-hover:text-amber-300 group-hover:drop-shadow-[0_0_5px_rgba(252,211,77,0.85)]"
-                    />
-                  </svg>
-                ) : (
-                  <div
-                    className={`absolute left-1/2 -translate-x-1/2 w-0.5 bg-amber-500/80 z-0 transition-colors duration-150 group-hover:bg-amber-300 group-hover:shadow-[0_0_8px_rgba(252,211,77,0.85)] ${
-                      isTop ? "bottom-1/2" : "top-1/2"
-                    }`}
-                    style={{ height: connectorLength }}
-                  />
-                )}
+                <div
+                  className={`absolute left-1/2 -translate-x-1/2 w-0.5 bg-amber-500/80 z-0 transition-colors duration-150 group-hover:bg-amber-300 group-hover:shadow-[0_0_8px_rgba(252,211,77,0.85)] ${
+                    isTop ? "bottom-1/2" : "top-1/2"
+                  }`}
+                  style={{ height: connectorLength }}
+                />
 
                 {/* Timeline marker diamond */}
                 <div
