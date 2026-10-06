@@ -1,7 +1,0 @@
-name = "chronicle-vault-auth"
-main = "worker.js"
-compatibility_date = "2026-10-06"
-workers_dev = true
-
-[vars]
-APP_URL = "https://jabbacalvin.github.io/chronicle-vault/"
