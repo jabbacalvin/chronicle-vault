@@ -709,7 +709,6 @@ export default function TimelinePage({
           cardX = shiftedCardX;
         }
       }
-      const otherSide = preferredSide === 0 ? 1 : 0;
       const connectorReach =
         cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
       const minimumCenterSeparation =
@@ -736,8 +735,7 @@ export default function TimelinePage({
       // Keep cards on the first row. When a card would collide with another
       // card, scan to the right first (then left) inside its day, keeping its
       // timestamp stem vertical and attached to the card.
-      for (const candidateSide of [preferredSide, otherSide]) {
-        for (
+      for (
           let distance = 0;
           distance <= Math.max(cardCenterMax - cardCenterMin, 0) &&
           placedCenter === null;
@@ -753,7 +751,7 @@ export default function TimelinePage({
               candidate > cardCenterMax ||
               entries.some(
                 (entry) =>
-                  entry.side === candidateSide &&
+                  entry.side === preferredSide &&
                   entry.lane === 0 &&
                   Math.abs(candidate - entry.cardX) < minimumCenterSeparation,
               )
@@ -762,7 +760,7 @@ export default function TimelinePage({
             }
 
             if (
-              candidateSide === 0 &&
+              preferredSide === 0 &&
               dayMarkerForCard?.showLabel &&
               candidate <
                 cardLabelRight +
@@ -788,39 +786,23 @@ export default function TimelinePage({
             if (crossesAnotherStem) continue;
 
             placedCenter = candidate;
-            side = candidateSide;
+            side = preferredSide;
             break;
           }
         }
-        if (placedCenter !== null) break;
-      }
 
       if (placedCenter !== null) {
         cardX = placedCenter;
       } else {
-        // Truly dense timestamp clusters can still require another lane. Keep
-        // this as a last resort after trying horizontal space on both sides.
+        // Preserve the alternating side assignment even for an unusually
+        // dense cluster; keep additional lanes on that same side.
         const leftEdge = cardX - occupiedWidth / 2;
         side = preferredSide;
-        lane = laneEnds[side].findIndex(
+        lane = laneEnds[preferredSide].findIndex(
           (rightEdge) =>
             rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
         );
-        if (lane < 0) {
-          lane = laneEnds[otherSide].findIndex(
-            (rightEdge) =>
-              rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
-          );
-          if (lane >= 0) side = otherSide;
-          else {
-            side =
-              laneEnds[preferredSide].length <=
-              laneEnds[otherSide].length
-                ? preferredSide
-                : otherSide;
-            lane = laneEnds[side].length;
-          }
-        }
+        if (lane < 0) lane = laneEnds[preferredSide].length;
       }
 
       laneEnds[side][lane] = cardX + occupiedWidth / 2;
