@@ -182,7 +182,7 @@ export default function MapModal({ location, onClose }) {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+      className="cv-modal-backdrop fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -224,7 +224,7 @@ export default function MapModal({ location, onClose }) {
         {/* ----------------------------------------------------------------- */}
         {/* Map Container */}
         {/* ----------------------------------------------------------------- */}
-        <div className="w-full h-96 bg-slate-950 relative z-10">
+        <div className="cv-map-canvas w-full h-96 bg-slate-950 relative z-10">
           <div ref={mapRef} className="w-full h-full" />
 
           {/* --------------------------------------------------------------- */}
