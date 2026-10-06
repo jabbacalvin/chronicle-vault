@@ -99,7 +99,7 @@ export default function TimelineToolbar({
               min={searchStartDate || undefined}
               onChange={(event) => setSearchEndDate(event.target.value)}
               aria-label="Search through date"
-              className="w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
+              className="cv-timeline-date-input w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
             />
           </label>
           {(searchQuery || searchStartDate || searchEndDate) && (
