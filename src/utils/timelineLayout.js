@@ -11,6 +11,10 @@ export const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
 const TIMELINE_DATE_LABEL_CARD_GAP = 36;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
+const TIMELINE_DATE_LABEL_HEIGHT = 26;
+const TIMELINE_DATE_LABEL_TOP = 64;
+const MOBILE_TIMELINE_DATE_LABEL_TOP = 18;
+const MOBILE_TIMELINE_AXIS_SHIFT = 36;
 const TIMELINE_CARD_CONNECTOR_OVERLAP = 4;
 const MIN_DATE_LABEL_SPACING = 112;
 
@@ -69,6 +73,21 @@ export function calculateTimelineLayout({
       (a, b) => a.dayOrdinal - b.dayOrdinal,
     );
     const viewportWidth = timelineViewport.width || 800;
+    const viewportHeight = timelineViewport.height || 600;
+    const isMobileTimeline = viewportWidth < 640;
+    const mobileAxisShift = isMobileTimeline
+      ? MOBILE_TIMELINE_AXIS_SHIFT
+      : 0;
+    const preferredAxisY = viewportHeight * 0.528;
+    const dateLabelTop = isMobileTimeline
+      ? MOBILE_TIMELINE_DATE_LABEL_TOP
+      : TIMELINE_DATE_LABEL_TOP;
+    const dateLabelBottom = dateLabelTop + TIMELINE_DATE_LABEL_HEIGHT;
+    const topCardOverlapsDateLabel = (cardHeight) => {
+      const cardBottomY = preferredAxisY - mobileAxisShift - 64;
+      const cardTopY = cardBottomY - cardHeight;
+      return cardTopY < dateLabelBottom && cardBottomY > dateLabelTop;
+    };
     const fitAvailableWidth = Math.max(
       TIMELINE_MARKER_WIDTH + 1,
       viewportWidth -
@@ -192,10 +211,8 @@ export function calculateTimelineLayout({
                   }
                   const cardHeight =
                     measuredCardHeights[entry.item.id] || 280;
-                  const preferredAxisY =
-                    (timelineViewport.height || 600) * 0.528;
                   const overlapsDateLabelVertically =
-                    preferredAxisY - 64 - cardHeight < 108;
+                    topCardOverlapsDateLabel(cardHeight);
                   if (
                     side === 0 &&
                     overlapsDateLabelVertically &&
@@ -340,7 +357,15 @@ export function calculateTimelineLayout({
       const dayMarker = dateMarkers.find(
         (marker) => marker.dayOrdinal === dayOrdinal,
       );
-      if (!hasFittedCardCenter && preferredSide === 0 && dayMarker?.showLabel) {
+      const cardHeight = measuredCardHeights[item.id] || 280;
+      const overlapsDateLabelVertically =
+        topCardOverlapsDateLabel(cardHeight);
+      if (
+        !hasFittedCardCenter &&
+        preferredSide === 0 &&
+        dayMarker?.showLabel &&
+        overlapsDateLabelVertically
+      ) {
         const labelLeft = dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET;
         const labelRight = labelLeft + dayMarker.labelWidth;
         const minCardCenter =
@@ -383,6 +408,7 @@ export function calculateTimelineLayout({
         const overlapsDateLabel =
           preferredSide === 0 &&
           dayMarker?.showLabel &&
+          overlapsDateLabelVertically &&
           shiftedCardX - cardHalfWidth < labelRight &&
           shiftedCardX + cardHalfWidth > labelLeft;
         if (shift > 0 && !overlapsDateLabel) {
@@ -442,6 +468,7 @@ export function calculateTimelineLayout({
             if (
               preferredSide === 0 &&
               dayMarkerForCard?.showLabel &&
+              overlapsDateLabelVertically &&
               candidate <
                 cardLabelRight +
                   TIMELINE_DATE_LABEL_CARD_GAP +
@@ -489,7 +516,6 @@ export function calculateTimelineLayout({
       entries.push({ id: item.id, x: itemX, cardX, side, lane });
     });
 
-    const viewportHeight = timelineViewport.height || 600;
     const defaultCardHeight = 280;
     const topCardExtent = entries.reduce((extent, entry) => {
       if (entry.side !== 0) return extent;
@@ -512,11 +538,8 @@ export function calculateTimelineLayout({
     // The timeline viewport is fixed-height; horizontal placement absorbs
     // card collisions so users never need to scroll vertically.
     const canvasHeight = viewportHeight;
-    const preferredAxisY = viewportHeight * 0.528;
-    // On phones, shift the axis up slightly while retaining a small top
-    // buffer for the upper cards. This gives lower cards extra room without
-    // adding vertical scrolling.
-    const mobileAxisShift = viewportWidth < 640 ? 36 : 0;
+    // The mobile axis shift gives lower cards extra room without adding
+    // vertical scrolling; desktop keeps the existing centered position.
     const axisY = Math.max(
       topExtent - mobileAxisShift,
       Math.min(
