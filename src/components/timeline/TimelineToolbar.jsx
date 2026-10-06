@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, ZoomIn, ZoomOut, Layers } from "lucide-react";
+import { Search, X, ZoomIn, ZoomOut, Layers, FileText } from "lucide-react";
 import { MAX_TIMELINE_ZOOM, MIN_TIMELINE_ZOOM } from "../../utils/timelineLayout";
 
 export default function TimelineToolbar({
@@ -19,6 +19,9 @@ export default function TimelineToolbar({
   containerRef,
   canEdit,
   isGroupingMode,
+  isUploadingNote,
+  setTextNoteBeingEdited,
+  setShowTextNoteModal,
   setIsGroupingMode,
   setTargetGroupId,
   setSelectedIds,
