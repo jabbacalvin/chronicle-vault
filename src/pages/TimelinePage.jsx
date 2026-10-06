@@ -1213,6 +1213,7 @@ export default function TimelinePage({
               items={filteredDisplayItems}
               timelineLayout={timelineLayout}
               canEdit={canEdit}
+              loadingItemId={loadingItemId}
               selection={{ isGroupingMode, selectedIds, targetGroupId }}
               editing={{
                 id: editingId,
