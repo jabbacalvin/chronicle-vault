@@ -2334,14 +2334,14 @@ export default function TimelinePage({
 
                       {/* Card Action Buttons */}
                       {!isEditing && (
-                        <div className="flex flex-col gap-1.5 mt-auto pt-1">
+                        <div className="flex flex-col gap-1 mt-auto pt-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenEvidenceModal(item);
                             }}
                             disabled={isThisLoading}
-                            className="w-full py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                            className="w-full py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                           >
                             {item.type === "text_note" ? (
                               <FileText className="w-3.5 h-3.5" />
@@ -2365,7 +2365,7 @@ export default function TimelinePage({
                                 e.stopPropagation();
                                 handleOpenMapLocation(gpsPhotos);
                               }}
-                              className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer"
+                              className="w-full py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer"
                             >
                               <MapPin className="w-3.5 h-3.5" />
 
@@ -2382,7 +2382,7 @@ export default function TimelinePage({
                                 e.stopPropagation();
                                 handleUngroupEntireGroup(item.id);
                               }}
-                              className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
+                              className="w-full py-1 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800 text-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
                               title="Return all evidence to the timeline and remove this group"
                             >
                               Ungroup All
