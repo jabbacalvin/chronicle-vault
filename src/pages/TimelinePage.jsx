@@ -33,7 +33,8 @@ const toDateTimeLocalValue = (timestamp) => {
 };
 
 const TIMELINE_DAY_WIDTH = 432;
-const TIMELINE_CARD_WIDTH = 192;
+const TIMELINE_CARD_WIDTH = 216;
+const TIMELINE_CARD_SPACING = 32;
 const TIMELINE_MARKER_WIDTH = 32;
 const TIMELINE_LEFT_PADDING = 48;
 const TIMELINE_RIGHT_PADDING = 64;
@@ -358,8 +359,9 @@ export default function TimelinePage({
       ? TIMELINE_MARKER_WIDTH
       : TIMELINE_CARD_WIDTH;
     const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
-    const cardGutter = 28;
-    const minCardCenterSeparation = TIMELINE_CARD_WIDTH + 8;
+    const cardGutter = 40;
+    const minCardCenterSeparation =
+      TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING;
     const cardCenterForRatio = (ratio, dayWidth) => {
       const inset = cardHalfWidth + cardGutter;
       return Math.min(
@@ -483,11 +485,11 @@ export default function TimelinePage({
       const preferredSide = index % 2 === 0 ? 0 : 1;
       const otherSide = preferredSide === 0 ? 1 : 0;
       let side = preferredSide;
-      let lane = laneEnds[side].findIndex((rightEdge) => rightEdge + 8 <= leftEdge);
+      let lane = laneEnds[side].findIndex((rightEdge) => rightEdge + TIMELINE_CARD_SPACING <= leftEdge);
 
       if (lane < 0) {
         lane = laneEnds[otherSide].findIndex(
-          (rightEdge) => rightEdge + 8 <= leftEdge,
+          (rightEdge) => rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
         );
         if (lane >= 0) {
           side = otherSide;
