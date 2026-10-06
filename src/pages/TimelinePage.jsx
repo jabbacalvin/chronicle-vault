@@ -32,17 +32,17 @@ const toDateTimeLocalValue = (timestamp) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-const TIMELINE_PIXELS_PER_HOUR = 6;
+const TIMELINE_DAY_WIDTH = 432;
 const TIMELINE_CARD_WIDTH = 192;
 const TIMELINE_MARKER_WIDTH = 32;
 const TIMELINE_LEFT_PADDING = 48;
 const TIMELINE_RIGHT_PADDING = 64;
 const MIN_TIMELINE_ZOOM = 0.05;
 const MAX_TIMELINE_ZOOM = 3;
-const COMPACT_ZOOM_THRESHOLD = 0.4;
+const COMPACT_ZOOM_THRESHOLD = 0.6;
 const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_CARD_AXIS_CLEARANCE = 300;
-const MIN_DATE_LABEL_SPACING = 76;
+const MIN_DATE_LABEL_SPACING = 112;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 const getLocalDayStart = (timestamp) => {
@@ -317,13 +317,12 @@ export default function TimelinePage({
       filteredDisplayItems[filteredDisplayItems.length - 1].timestamp,
     );
     const firstDayStart = getLocalDayStart(earliestTimestamp);
-    const lastDayEnd = getLocalDayStart(latestTimestamp);
-    lastDayEnd.setDate(lastDayEnd.getDate() + 1);
-
-    const durationHours = Math.max(
-      1,
-      (lastDayEnd.getTime() - firstDayStart.getTime()) / HOUR_MILLISECONDS,
-    );
+    const lastDayStart = getLocalDayStart(latestTimestamp);
+    const localDayOrdinal = (date) =>
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) /
+      (24 * HOUR_MILLISECONDS);
+    const dayCount =
+      localDayOrdinal(lastDayStart) - localDayOrdinal(firstDayStart) + 1;
     const viewportWidth = timelineViewport.width || 800;
     const fitAvailableWidth = Math.max(
       TIMELINE_MARKER_WIDTH + 1,
@@ -334,51 +333,67 @@ export default function TimelinePage({
     );
     const fitZoom = Math.min(
       1,
-      fitAvailableWidth / (durationHours * TIMELINE_PIXELS_PER_HOUR),
+      fitAvailableWidth / (dayCount * TIMELINE_DAY_WIDTH),
     );
     const zoom = isFitView ? fitZoom : timelineZoom;
     const isCompact = isFitView || zoom < COMPACT_ZOOM_THRESHOLD;
+    const dayWidth = TIMELINE_DAY_WIDTH * zoom;
     const occupiedWidth = isCompact
       ? TIMELINE_MARKER_WIDTH
       : TIMELINE_CARD_WIDTH;
-    const xForTimestamp = (timestamp) =>
-      TIMELINE_LEFT_PADDING +
-      ((Number(timestamp) - firstDayStart.getTime()) / HOUR_MILLISECONDS) *
-        TIMELINE_PIXELS_PER_HOUR *
-        zoom;
+    const xForTimestamp = (timestamp) => {
+      const itemDayStart = getLocalDayStart(timestamp);
+      const dayIndex =
+        localDayOrdinal(itemDayStart) - localDayOrdinal(firstDayStart);
+      const nextDayStart = new Date(itemDayStart);
+      nextDayStart.setDate(nextDayStart.getDate() + 1);
+      const timeOfDayRatio =
+        (Number(timestamp) - itemDayStart.getTime()) /
+        (nextDayStart.getTime() - itemDayStart.getTime());
+      return (
+        TIMELINE_LEFT_PADDING +
+        dayIndex * dayWidth +
+        timeOfDayRatio * dayWidth
+      );
+    };
 
     const laneEnds = [[], []];
     const entries = [];
     const dateMarkers = [];
-    let previousDayKey = null;
     let lastDateLabelX = -Infinity;
+
+    for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
+      const dayStart = new Date(firstDayStart);
+      dayStart.setDate(dayStart.getDate() + dayIndex);
+      const dateX = TIMELINE_LEFT_PADDING + dayIndex * dayWidth;
+      const showLabel =
+        dayIndex === 0 || dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
+      dateMarkers.push({
+        id: `day-${dayStart.getTime()}`,
+        left: dateX,
+        label: dayStart.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        showLabel,
+      });
+      if (showLabel) lastDateLabelX = dateX;
+    }
 
     filteredDisplayItems.forEach((item, index) => {
       const itemX = xForTimestamp(item.timestamp);
       const dayStart = getLocalDayStart(item.timestamp);
-      const dayKey = dayStart.getTime();
-
-      if (dayKey !== previousDayKey) {
-        const dateX = xForTimestamp(dayStart.getTime());
-        const showLabel =
-          dateMarkers.length === 0 ||
-          dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
-        dateMarkers.push({
-          id: `day-${dayKey}`,
-          left: dateX,
-          label: dayStart.toLocaleDateString([], {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          }),
-          showLabel,
-        });
-        if (showLabel) lastDateLabelX = dateX;
-        previousDayKey = dayKey;
-      }
-
-      const halfWidth = occupiedWidth / 2;
-      const leftEdge = itemX - halfWidth;
+      const dayIndex =
+        localDayOrdinal(dayStart) - localDayOrdinal(firstDayStart);
+      const dayLeft = TIMELINE_LEFT_PADDING + dayIndex * dayWidth;
+      const dayRight = dayLeft + dayWidth;
+      const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
+      const cardX = Math.min(
+        dayRight - cardHalfWidth - 8,
+        Math.max(dayLeft + cardHalfWidth + 8, itemX),
+      );
+      const leftEdge = cardX - occupiedWidth / 2;
       const preferredSide = index % 2 === 0 ? 0 : 1;
       const otherSide = preferredSide === 0 ? 1 : 0;
       let side = preferredSide;
@@ -399,8 +414,8 @@ export default function TimelinePage({
         }
       }
 
-      laneEnds[side][lane] = itemX + halfWidth;
-      entries.push({ id: item.id, x: itemX, side, lane });
+      laneEnds[side][lane] = cardX + occupiedWidth / 2;
+      entries.push({ id: item.id, x: itemX, cardX, side, lane });
     });
 
     const topLaneCount = laneEnds[0].length;
@@ -421,7 +436,7 @@ export default function TimelinePage({
       topExtent + (canvasHeight - topExtent - bottomExtent) / 2;
     const canvasWidth = Math.max(
       viewportWidth,
-      xForTimestamp(lastDayEnd.getTime()) + TIMELINE_RIGHT_PADDING,
+      TIMELINE_LEFT_PADDING + dayCount * dayWidth + TIMELINE_RIGHT_PADDING,
     );
 
     return {
@@ -1706,10 +1721,10 @@ export default function TimelinePage({
                     : undefined
                 }
                 style={{
-                  left: entryLayout.x - TIMELINE_CARD_WIDTH / 2,
+                  left: entryLayout.x - TIMELINE_MARKER_WIDTH / 2,
                   top: timelineLayout.axisY - 144,
                 }}
-                className={`absolute w-48 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
+                className={`absolute w-8 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
                 onKeyDown={(event) => {
                   if (
                     timelineLayout.isCompact &&
@@ -1758,8 +1773,9 @@ export default function TimelinePage({
 
                 {!timelineLayout.isCompact && (
                   <div
-                    className="absolute w-48 z-30"
+                    className="absolute w-48 -translate-x-1/2 z-30"
                     style={{
+                      left: `calc(50% + ${entryLayout.cardX - entryLayout.x}px)`,
                       [isTop ? "bottom" : "top"]:
                         `calc(50% + ${connectorLength}px)`,
                     }}
