@@ -111,10 +111,15 @@ export function calculateTimelineLayout({
     const minimumCardDayWidth = cardInset * 2;
     const minCardCenterSeparation =
       TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING;
-    const cardCenterForRatio = (ratio, group, dayWidth) =>
-      isCompact
-        ? ratio * dayWidth
-        : cardInset + (ratio - group.firstTimeRatio) * dayWidth;
+    const cardCenterForRatio = (ratio, group, dayWidth) => {
+      if (isCompact) return ratio * dayWidth;
+      const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
+      const activeWidth = Math.max(0, dayWidth - 2 * cardInset);
+      const activeRatio = activeTimeSpan > 0
+        ? (ratio - group.firstTimeRatio) / activeTimeSpan
+        : 0;
+      return cardInset + activeRatio * activeWidth;
+    };
     const dayWidths = new Map();
     const dayOffsets = new Map();
     const cardCentersByIndex = new Map();
@@ -129,19 +134,16 @@ export function calculateTimelineLayout({
         : Math.max(baseDayWidth, minimumCardDayWidth);
 
       if (!isCompact) {
-        // Start each active day at its first event instead of reserving space
-        // from midnight. The time differences between events remain linear.
+        // Size the active time range at the current zoom's time scale and
+        // reserve fixed card margins at both ends. This avoids multiplying
+        // the whole day width when events span nearly a full day.
+        dayWidth = Math.max(
+          dayWidth,
+          2 * cardInset + activeTimeSpan * baseDayWidth,
+        );
         // Bound collision-driven expansion. When a very dense cluster still
         // cannot fit on one row, the existing lane fallback handles it.
         const maxDayWidth = Math.max(dayWidth, baseDayWidth * 2);
-        const widthForActiveSpan =
-          activeTimeSpan < 1
-            ? (2 * cardInset) / (1 - activeTimeSpan)
-            : maxDayWidth;
-        dayWidth = Math.max(
-          dayWidth,
-          Math.min(maxDayWidth, widthForActiveSpan),
-        );
 
         const dayLabel = group.dayStart.toLocaleDateString([], {
           month: "short",
@@ -303,9 +305,7 @@ export function calculateTimelineLayout({
         (nextDayStart.getTime() - itemDayStart.getTime());
       const group = dayGroupsByOrdinal.get(dayOrdinal);
       const dayWidth = dayWidths.get(dayOrdinal);
-      const dayRelativeX = isCompact
-        ? timeRatio * dayWidth
-        : cardInset + (timeRatio - group.firstTimeRatio) * dayWidth;
+      const dayRelativeX = cardCenterForRatio(timeRatio, group, dayWidth);
       return (
         TIMELINE_LEFT_PADDING +
         dayOffsets.get(dayOrdinal) +
