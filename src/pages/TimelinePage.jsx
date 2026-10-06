@@ -441,8 +441,13 @@ export default function TimelinePage({
         });
         const labelLeft = TIMELINE_DATE_LABEL_LEFT_OFFSET;
         const labelRight = labelLeft + getTimelineDateLabelWidth(dayLabel);
+        // Leave room for the date label, its gap, and the rotated group-card
+        // backs so the visible date stays clear.
         const labelSafeCardCenter =
-          labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
+          labelRight +
+          TIMELINE_DATE_LABEL_CARD_GAP +
+          cardHalfWidth +
+          16;
         const connectorReach =
           cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
         const requiredRightBuffer = cardGutter + TIMELINE_CARD_SPACING;
@@ -501,7 +506,7 @@ export default function TimelinePage({
                   if (
                     side === 0 &&
                     overlapsDateLabelVertically &&
-                    candidate - cardHalfWidth < labelRight &&
+                    candidate < labelSafeCardCenter &&
                     candidate + cardHalfWidth > labelLeft
                   ) {
                     continue;
@@ -746,7 +751,11 @@ export default function TimelinePage({
             if (
               candidateSide === 0 &&
               dayMarkerForCard?.showLabel &&
-              candidate - cardHalfWidth < cardLabelRight &&
+              candidate <
+                cardLabelRight +
+                  TIMELINE_DATE_LABEL_CARD_GAP +
+                  cardHalfWidth +
+                  16 &&
               candidate + cardHalfWidth > cardLabelLeft
             ) {
               continue;
@@ -1846,7 +1855,7 @@ export default function TimelinePage({
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden select-none bg-slate-950 m-0 p-0 relative">
+    <div className="w-full h-full min-h-0 flex flex-col overflow-hidden select-none bg-slate-950 m-0 p-0 relative">
       {/* ------------------------------------------------------------------- */}
       {/* Timeline search and actions */}
       <div className="absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
@@ -2014,7 +2023,7 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className="w-full flex-1 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
+        className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
         <div
           style={
