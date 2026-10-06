@@ -691,23 +691,113 @@ export default function TimelinePage({
           cardX = shiftedCardX;
         }
       }
-      const leftEdge = cardX - occupiedWidth / 2;
       const otherSide = preferredSide === 0 ? 1 : 0;
+      const connectorReach =
+        cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
+      const minimumCenterSeparation =
+        occupiedWidth + TIMELINE_CARD_SPACING;
+      const dayMarkerForCard = dateMarkers.find(
+        (marker) => marker.dayOrdinal === dayOrdinal,
+      );
+      const cardCenterMin = Math.max(
+        dayLeft + cardInset,
+        itemX - connectorReach,
+      );
+      const cardCenterMax = Math.min(
+        dayRight - cardHalfWidth - cardGutter,
+        itemX + connectorReach,
+      );
+      const cardLabelLeft =
+        dayMarkerForCard?.left + TIMELINE_DATE_LABEL_LEFT_OFFSET;
+      const cardLabelRight =
+        cardLabelLeft + (dayMarkerForCard?.labelWidth || 0);
       let side = preferredSide;
-      let lane = laneEnds[side].findIndex((rightEdge) => rightEdge + TIMELINE_CARD_SPACING <= leftEdge);
+      let lane = 0;
+      let placedCenter = null;
 
-      if (lane < 0) {
-        lane = laneEnds[otherSide].findIndex(
-          (rightEdge) => rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
+      // Keep cards on the first row. When a card would collide with another
+      // card, scan to the right first (then left) inside its day, keeping its
+      // timestamp stem vertical and attached to the card.
+      for (const candidateSide of [preferredSide, otherSide]) {
+        for (
+          let distance = 0;
+          distance <= Math.max(cardCenterMax - cardCenterMin, 0) &&
+          placedCenter === null;
+          distance += 8
+        ) {
+          const candidates =
+            distance === 0
+              ? [cardX]
+              : [cardX + distance, cardX - distance];
+          for (const candidate of candidates) {
+            if (
+              candidate < cardCenterMin ||
+              candidate > cardCenterMax ||
+              entries.some(
+                (entry) =>
+                  entry.side === candidateSide &&
+                  entry.lane === 0 &&
+                  Math.abs(candidate - entry.cardX) < minimumCenterSeparation,
+              )
+            ) {
+              continue;
+            }
+
+            if (
+              candidateSide === 0 &&
+              dayMarkerForCard?.showLabel &&
+              candidate - cardHalfWidth < cardLabelRight &&
+              candidate + cardHalfWidth > cardLabelLeft
+            ) {
+              continue;
+            }
+
+            const crossesAnotherStem = filteredDisplayItems.some(
+              (otherItem, otherIndex) =>
+                otherIndex !== index &&
+                localDayOrdinal(getLocalDayStart(otherItem.timestamp)) ===
+                  dayOrdinal &&
+                Math.abs(
+                  candidate -
+                    xForTimestamp(otherItem.timestamp),
+                ) <
+                  cardHalfWidth + TIMELINE_CARD_CONNECTOR_OVERLAP,
+            );
+            if (crossesAnotherStem) continue;
+
+            placedCenter = candidate;
+            side = candidateSide;
+            break;
+          }
+        }
+        if (placedCenter !== null) break;
+      }
+
+      if (placedCenter !== null) {
+        cardX = placedCenter;
+      } else {
+        // Truly dense timestamp clusters can still require another lane. Keep
+        // this as a last resort after trying horizontal space on both sides.
+        const leftEdge = cardX - occupiedWidth / 2;
+        side = preferredSide;
+        lane = laneEnds[side].findIndex(
+          (rightEdge) =>
+            rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
         );
-        if (lane >= 0) {
-          side = otherSide;
-        } else {
-          side =
-            laneEnds[preferredSide].length <= laneEnds[otherSide].length
-              ? preferredSide
-              : otherSide;
-          lane = laneEnds[side].length;
+        if (lane < 0) {
+          lane = laneEnds[otherSide].findIndex(
+            (rightEdge) =>
+              rightEdge + TIMELINE_CARD_SPACING <= leftEdge,
+          );
+          if (lane >= 0) side = otherSide;
+          else {
+            side =
+              laneEnds[preferredSide].length <=
+              laneEnds[otherSide].length
+                ? preferredSide
+                : otherSide;
+            lane = laneEnds[side].length;
+          }
         }
       }
 
@@ -735,10 +825,9 @@ export default function TimelinePage({
     }, 0);
     const topExtent = isCompact ? 32 : topCardExtent;
     const bottomExtent = isCompact ? 32 : bottomCardExtent;
-    const canvasHeight = Math.max(
-      viewportHeight,
-      topExtent + bottomExtent + 16,
-    );
+    // The timeline viewport is fixed-height; horizontal placement absorbs
+    // card collisions so users never need to scroll vertically.
+    const canvasHeight = viewportHeight;
     const preferredAxisY = viewportHeight * 0.528;
     const axisY = Math.max(
       topExtent,
@@ -1925,7 +2014,7 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className="w-full flex-1 overflow-auto relative bg-slate-950 custom-scrollbar p-0 m-0"
+        className="w-full flex-1 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
         <div
           style={
