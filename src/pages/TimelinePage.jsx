@@ -371,153 +371,64 @@ export default function TimelinePage({
     const minimumCardDayWidth = cardInset * 2;
     const minCardCenterSeparation =
       TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING;
-    const cardCenterForRatio = (ratio, dayWidth) =>
-      Math.min(
-        dayWidth - cardInset,
-        Math.max(cardInset, ratio * dayWidth),
-      );
+    const cardCenterForRatio = (ratio, group, dayWidth) =>
+      isCompact
+        ? ratio * dayWidth
+        : cardInset + (ratio - group.firstTimeRatio) * dayWidth;
     const dayWidths = new Map();
     const dayOffsets = new Map();
     let totalDayWidth = 0;
 
     dayGroups.forEach((group) => {
+      group.firstTimeRatio = Math.min(...group.entries.map((entry) => entry.timeRatio));
+      group.lastTimeRatio = Math.max(...group.entries.map((entry) => entry.timeRatio));
+      const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
       let dayWidth = isCompact
         ? baseDayWidth
         : Math.max(baseDayWidth, minimumCardDayWidth);
 
       if (!isCompact) {
-        const preferredSides = [[], []];
-        group.entries.forEach((entry) => {
-          preferredSides[entry.index % 2].push(entry);
-        });
+        // Start each active day at its first event instead of reserving space
+        // from midnight. The time differences between events remain linear.
+        const maxFittedWidth = baseDayWidth * 8;
+        const widthForActiveSpan =
+          activeTimeSpan < 1
+            ? (2 * cardInset) / (1 - activeTimeSpan)
+            : maxFittedWidth;
+        dayWidth = Math.max(
+          dayWidth,
+          Math.min(maxFittedWidth, widthForActiveSpan),
+        );
+
         const dayLabel = group.dayStart.toLocaleDateString([], {
           month: "short",
           day: "numeric",
           year: "numeric",
         });
-        const labelRight = TIMELINE_DATE_LABEL_LEFT_OFFSET +
+        const labelRight =
+          TIMELINE_DATE_LABEL_LEFT_OFFSET +
           getTimelineDateLabelWidth(dayLabel);
         const labelSafeCardCenter =
           labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
         const needsLabelClearance = group.entries.some(
-          ({ index, timeRatio }) =>
-            index % 2 === 0 &&
-            cardCenterForRatio(timeRatio, baseDayWidth) - cardHalfWidth <
-              labelRight &&
-            cardCenterForRatio(timeRatio, baseDayWidth) + cardHalfWidth >
-              TIMELINE_DATE_LABEL_LEFT_OFFSET,
+          ({ index, timeRatio }) => {
+            if (index % 2 !== 0) return false;
+            const cardCenter = cardCenterForRatio(
+              timeRatio,
+              group,
+              baseDayWidth,
+            );
+            return (
+              cardCenter - cardHalfWidth < labelRight &&
+              cardCenter + cardHalfWidth > TIMELINE_DATE_LABEL_LEFT_OFFSET
+            );
+          },
         );
         if (needsLabelClearance) {
           dayWidth = Math.max(
             dayWidth,
             labelSafeCardCenter + cardHalfWidth + cardGutter,
           );
-        }
-
-        const cardCenterForEntry = (entry, candidateWidth) => {
-          const naturalCenter = cardCenterForRatio(
-            entry.timeRatio,
-            candidateWidth,
-          );
-          if (entry.index % 2 !== 0) return naturalCenter;
-
-          const overlapsDateLabel =
-            naturalCenter - cardHalfWidth < labelRight &&
-            naturalCenter + cardHalfWidth >
-              TIMELINE_DATE_LABEL_LEFT_OFFSET;
-          return overlapsDateLabel
-            ? Math.min(
-                candidateWidth - cardInset,
-                Math.max(naturalCenter, labelSafeCardCenter),
-              )
-            : naturalCenter;
-        };
-
-        group.entries.forEach((entry) => {
-          const connectorReach =
-            cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
-          const minimumAttachedEventX =
-            entry.index % 2 === 0
-              ? Math.max(cardInset, labelSafeCardCenter) -
-                connectorReach
-              : cardInset - connectorReach;
-          const leftAttachmentWidth =
-            entry.timeRatio > 0
-              ? minimumAttachedEventX / entry.timeRatio
-              : 0;
-          const rightAttachmentWidth =
-            entry.timeRatio < 1
-              ? (cardGutter + TIMELINE_CARD_CONNECTOR_OVERLAP) /
-                (1 - entry.timeRatio)
-              : 0;
-          dayWidth = Math.max(
-            dayWidth,
-            leftAttachmentWidth,
-            rightAttachmentWidth,
-          );
-        });
-
-        const hasCardLayoutConflictsAtWidth = (candidateWidth) => {
-          const hasCollisions = preferredSides.some((entriesOnSide) => {
-            for (
-              let index = 1;
-              index < entriesOnSide.length;
-              index += 1
-            ) {
-              const leftCenter = cardCenterForEntry(
-                entriesOnSide[index - 1],
-                candidateWidth,
-              );
-              const rightCenter = cardCenterForEntry(
-                entriesOnSide[index],
-                candidateWidth,
-              );
-              if (
-                rightCenter - leftCenter <
-                minCardCenterSeparation
-              ) {
-                return true;
-              }
-            }
-            return false;
-          });
-          if (hasCollisions) return true;
-
-          return group.entries.some((entry) => {
-            const cardCenter = cardCenterForEntry(
-              entry,
-              candidateWidth,
-            );
-            const eventCenter = entry.timeRatio * candidateWidth;
-            return (
-              Math.abs(cardCenter - eventCenter) >
-              cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP
-            );
-          });
-        };
-
-        let upperWidth = dayWidth;
-        const maxDayWidth = baseDayWidth * 8;
-        while (
-          upperWidth < maxDayWidth &&
-          hasCardLayoutConflictsAtWidth(upperWidth)
-        ) {
-          upperWidth = Math.min(maxDayWidth, upperWidth * 2);
-        }
-
-        if (hasCardLayoutConflictsAtWidth(upperWidth)) {
-          dayWidth = upperWidth;
-        } else {
-          let lowerWidth = dayWidth;
-          for (let iteration = 0; iteration < 24; iteration += 1) {
-            const middleWidth = (lowerWidth + upperWidth) / 2;
-            if (hasCardLayoutConflictsAtWidth(middleWidth)) {
-              lowerWidth = middleWidth;
-            } else {
-              upperWidth = middleWidth;
-            }
-          }
-          dayWidth = upperWidth;
         }
       }
 
@@ -534,14 +445,19 @@ export default function TimelinePage({
       const timeRatio =
         (Number(timestamp) - itemDayStart.getTime()) /
         (nextDayStart.getTime() - itemDayStart.getTime());
+      const group = dayGroupsByOrdinal.get(dayOrdinal);
+      const dayWidth = dayWidths.get(dayOrdinal);
+      const dayRelativeX = isCompact
+        ? timeRatio * dayWidth
+        : cardInset + (timeRatio - group.firstTimeRatio) * dayWidth;
       return (
         TIMELINE_LEFT_PADDING +
         dayOffsets.get(dayOrdinal) +
-        timeRatio * dayWidths.get(dayOrdinal)
+        dayRelativeX
       );
     };
 
-    const laneEnds = [[], []];
+        const laneEnds = [[], []];
     const entries = [];
     const dateMarkers = [];
     let lastDateLabelX = -Infinity;
