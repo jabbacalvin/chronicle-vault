@@ -131,12 +131,9 @@ export function calculateTimelineLayout({
       if (!isCompact) {
         // Start each active day at its first event instead of reserving space
         // from midnight. The time differences between events remain linear.
-        const maxDayWidth = Math.max(
-          baseDayWidth * 8,
-          (group.entries.length + 1) * minCardCenterSeparation +
-            2 * cardInset +
-            TIMELINE_CARD_SPACING,
-        );
+        // Bound collision-driven expansion. When a very dense cluster still
+        // cannot fit on one row, the existing lane fallback handles it.
+        const maxDayWidth = Math.max(dayWidth, baseDayWidth * 2);
         const widthForActiveSpan =
           activeTimeSpan < 1
             ? (2 * cardInset) / (1 - activeTimeSpan)
@@ -252,10 +249,38 @@ export function calculateTimelineLayout({
           return centers;
         };
 
-        // Keep day width tied to the actual time span. If same-side cards
-        // cannot fit on one row at this scale, the placement pass below uses
-        // additional lanes instead of stretching the entire day.
-        const fittedCenters = findFittedCardCenters(dayWidth);
+        // Keep modestly expanding a crowded day so first-row cards remain
+        // visible and connected. The cap above prevents a tight cluster from
+        // stretching its day without limit.
+        let fittedCenters = findFittedCardCenters(dayWidth);
+        let lowerWidth = dayWidth;
+        let upperWidth = dayWidth;
+        while (!fittedCenters && upperWidth < maxDayWidth) {
+          lowerWidth = upperWidth;
+          upperWidth = Math.min(maxDayWidth, upperWidth + 16);
+          fittedCenters = findFittedCardCenters(upperWidth);
+        }
+        if (fittedCenters) {
+          // Narrow the expanded day to the smallest width that still keeps
+          // every card clear of its neighbors and the other timestamp stems.
+          let low = lowerWidth;
+          let high = upperWidth;
+          for (let iteration = 0; iteration < 12 && high - low > 1; iteration += 1) {
+            const middle = (low + high) / 2;
+            const middleCenters = findFittedCardCenters(middle);
+            if (middleCenters) {
+              high = middle;
+              fittedCenters = middleCenters;
+            } else {
+              low = middle;
+            }
+          }
+          dayWidth = high;
+          fittedCenters = findFittedCardCenters(dayWidth) || fittedCenters;
+        } else {
+          dayWidth = maxDayWidth;
+        }
+
         if (fittedCenters) {
           fittedCenters.forEach((center, entryIndex) => {
             cardCentersByIndex.set(entryIndex, center);
