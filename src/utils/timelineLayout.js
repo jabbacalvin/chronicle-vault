@@ -131,12 +131,9 @@ export function calculateTimelineLayout({
       if (!isCompact) {
         // Start each active day at its first event instead of reserving space
         // from midnight. The time differences between events remain linear.
-        const maxDayWidth = Math.max(
-          baseDayWidth * 8,
-          (group.entries.length + 1) * minCardCenterSeparation +
-            2 * cardInset +
-            TIMELINE_CARD_SPACING,
-        );
+        // Bound collision-driven expansion. When a very dense cluster still
+        // cannot fit on one row, the existing lane fallback handles it.
+        const maxDayWidth = Math.max(dayWidth, baseDayWidth * 2);
         const widthForActiveSpan =
           activeTimeSpan < 1
             ? (2 * cardInset) / (1 - activeTimeSpan)
@@ -252,6 +249,9 @@ export function calculateTimelineLayout({
           return centers;
         };
 
+        // Keep modestly expanding a crowded day so first-row cards remain
+        // visible and connected. The cap above prevents a tight cluster from
+        // stretching its day without limit.
         let fittedCenters = findFittedCardCenters(dayWidth);
         let lowerWidth = dayWidth;
         let upperWidth = dayWidth;
