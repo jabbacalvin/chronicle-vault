@@ -42,6 +42,7 @@ const MAX_TIMELINE_ZOOM = 3;
 const COMPACT_ZOOM_THRESHOLD = 0.6;
 const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_CARD_AXIS_CLEARANCE = 300;
+const TIMELINE_BOTTOM_CARD_CLEARANCE = 450;
 const TIMELINE_DATE_LABEL_CLEARANCE = 260;
 const MIN_DATE_LABEL_SPACING = 112;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
@@ -428,7 +429,7 @@ export default function TimelinePage({
         (topLaneCount - 1) * TIMELINE_LANE_SPACING
       : 32;
     const bottomExtent = bottomLaneCount
-      ? TIMELINE_CARD_AXIS_CLEARANCE +
+      ? TIMELINE_BOTTOM_CARD_CLEARANCE +
         (bottomLaneCount - 1) * TIMELINE_LANE_SPACING
       : 32;
     const canvasHeight = Math.max(
