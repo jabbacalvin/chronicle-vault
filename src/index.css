@@ -135,7 +135,7 @@ body,
 }
 
 .cv-timeline-scroll-area {
-  touch-action: pan-x;
+  touch-action: pan-x pinch-zoom;
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
@@ -213,7 +213,7 @@ body,
     padding-bottom: 2px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x;
+    touch-action: pan-x pinch-zoom;
     overscroll-behavior-x: contain;
   }
 
