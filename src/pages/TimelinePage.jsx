@@ -1155,7 +1155,7 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
+        className="cv-timeline-scroll-area w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
         <div
           style={
@@ -1246,7 +1246,7 @@ export default function TimelinePage({
       {/* Floating Grouping Action Bar */}
       {/* ------------------------------------------------------------------- */}
       {canEdit && isGroupingMode && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
+        <div className="cv-group-action-bar absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-sm font-medium text-slate-200">
               {selectedIds.length} items selected

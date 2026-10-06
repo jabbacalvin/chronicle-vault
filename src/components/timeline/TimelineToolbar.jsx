@@ -28,8 +28,8 @@ export default function TimelineToolbar({
   setSelectionAnchorId
 }) {
   return (
-      <div className="absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+      <div className="cv-timeline-toolbar absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+        <div className="cv-timeline-filter-group flex flex-wrap items-center gap-2 pointer-events-auto">
           <label className="relative flex items-center">
             <Search className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
@@ -38,7 +38,7 @@ export default function TimelineToolbar({
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search title, memo, or note..."
               aria-label="Search evidence titles, memos, and note content"
-              className="w-56 sm:w-64 pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 hover:border-slate-500 focus:border-amber-500 rounded-md text-xs text-slate-100 placeholder:text-slate-500 outline-none shadow-lg"
+              className="cv-timeline-search w-56 sm:w-64 pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 hover:border-slate-500 focus:border-amber-500 rounded-md text-xs text-slate-100 placeholder:text-slate-500 outline-none shadow-lg"
             />
           </label>
           <label className="flex items-center gap-2 px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-md text-[10px] font-mono uppercase tracking-wider text-slate-400 shadow-lg">
@@ -49,7 +49,7 @@ export default function TimelineToolbar({
               max={searchEndDate || undefined}
               onChange={(event) => setSearchStartDate(event.target.value)}
               aria-label="Search from date"
-              className="w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
+              className="cv-timeline-date-input w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
             />
           </label>
           <label className="flex items-center gap-2 px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-md text-[10px] font-mono uppercase tracking-wider text-slate-400 shadow-lg">
@@ -82,7 +82,7 @@ export default function TimelineToolbar({
             {filteredDisplayItems.length} / {displayItems.length}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+        <div className="cv-timeline-action-group flex flex-wrap items-center gap-2 pointer-events-auto">
           <div
             role="group"
             aria-label="Timeline zoom controls"
