@@ -1,5 +1,5 @@
-import React from "react";
-import { Search, X, ZoomIn, ZoomOut, Layers, FileText } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Search, X, ZoomIn, ZoomOut, Layers, FileText, Menu } from "lucide-react";
 import { MAX_TIMELINE_ZOOM, MIN_TIMELINE_ZOOM } from "../../utils/timelineLayout";
 
 export default function TimelineToolbar({
@@ -27,8 +27,47 @@ export default function TimelineToolbar({
   setSelectedIds,
   setSelectionAnchorId
 }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toolbarRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+
+    const closeOnOutsidePress = (event) => {
+      if (!toolbarRef.current?.contains(event.target)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isMobileMenuOpen]);
+
   return (
-      <div className="cv-timeline-toolbar absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+      <div ref={toolbarRef} className="cv-timeline-toolbar absolute top-4 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+        <button
+          type="button"
+          className="cv-toolbar-toggle pointer-events-auto items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-medium text-slate-100 shadow-xl"
+          aria-controls="timeline-mobile-controls"
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? "Close timeline tools" : "Open timeline tools"}
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+        >
+          {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          <span>Tools</span>
+        </button>
+        <div
+          id="timeline-mobile-controls"
+          className="cv-toolbar-controls"
+          data-open={isMobileMenuOpen ? "true" : "false"}
+        >
         <div className="cv-timeline-filter-group flex flex-wrap items-center gap-2 pointer-events-auto">
           <label className="relative flex items-center">
             <Search className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -60,7 +99,7 @@ export default function TimelineToolbar({
               min={searchStartDate || undefined}
               onChange={(event) => setSearchEndDate(event.target.value)}
               aria-label="Search through date"
-              className="w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
+              className="cv-timeline-date-input w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
             />
           </label>
           {(searchQuery || searchStartDate || searchEndDate) && (
@@ -160,6 +199,7 @@ export default function TimelineToolbar({
             <>
               <button
                 onClick={() => {
+                  setIsMobileMenuOpen(false);
                   setTextNoteBeingEdited(null);
                   setShowTextNoteModal(true);
                 }}
@@ -172,6 +212,7 @@ export default function TimelineToolbar({
               {displayItems.length > 0 && (
                 <button
                   onClick={() => {
+                    setIsMobileMenuOpen(false);
                     setIsGroupingMode(true);
                     setTargetGroupId(null);
                     setSelectedIds([]);
@@ -185,6 +226,7 @@ export default function TimelineToolbar({
               )}
             </>
           )}
+        </div>
         </div>
       </div>
   );
