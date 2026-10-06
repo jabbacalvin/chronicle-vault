@@ -23,8 +23,8 @@ export default function GroupModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+    <div className="cv-modal-backdrop fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="cv-modal-panel bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Layers className="w-4 h-4 text-amber-500" />
