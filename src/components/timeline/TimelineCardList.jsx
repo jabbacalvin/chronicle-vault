@@ -18,6 +18,7 @@ export default function TimelineCardList({
   items,
   timelineLayout,
   canEdit,
+  loadingItemId,
   selection,
   editing,
   actions,
