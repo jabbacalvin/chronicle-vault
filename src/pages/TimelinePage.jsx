@@ -44,7 +44,7 @@ const COMPACT_ZOOM_THRESHOLD = 0.6;
 const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_CARD_AXIS_CLEARANCE = 300;
 const TIMELINE_BOTTOM_CARD_CLEARANCE = 500;
-const TIMELINE_DATE_LABEL_CLEARANCE = 60;
+const TIMELINE_DATE_LABEL_CLEARANCE = 180;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
 const TIMELINE_DATE_LABEL_CARD_GAP = 36;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
@@ -509,6 +509,41 @@ export default function TimelinePage({
           cardX + cardHalfWidth > labelLeft
         ) {
           cardX = Math.min(maxCardCenter, Math.max(cardX, minCardCenter));
+        }
+      }
+      // Give cards extra room from the next dotted day boundary. Shift only
+      // the card; keep its timestamp marker and vertical connector in place.
+      const desiredRightGap = cardGutter + TIMELINE_CARD_SPACING;
+      const currentRightGap = dayRight - (cardX + cardHalfWidth);
+      if (currentRightGap < desiredRightGap) {
+        const labelLeft = dayMarker
+          ? dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET
+          : 0;
+        const labelRight = labelLeft + (dayMarker?.labelWidth || 0);
+        const requestedShift = desiredRightGap - currentRightGap;
+        const connectorReach =
+          cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
+        const maxAttachedShift = Math.max(
+          0,
+          connectorReach - Math.abs(itemX - cardX),
+        );
+        const maxLeftShift = Math.max(
+          0,
+          cardX - (dayLeft + cardInset),
+        );
+        const shift = Math.min(
+          requestedShift,
+          maxAttachedShift,
+          maxLeftShift,
+        );
+        const shiftedCardX = cardX - shift;
+        const overlapsDateLabel =
+          preferredSide === 0 &&
+          dayMarker?.showLabel &&
+          shiftedCardX - cardHalfWidth < labelRight &&
+          shiftedCardX + cardHalfWidth > labelLeft;
+        if (shift > 0 && !overlapsDateLabel) {
+          cardX = shiftedCardX;
         }
       }
       const leftEdge = cardX - occupiedWidth / 2;
