@@ -1142,6 +1142,9 @@ export default function TimelinePage({
         containerRef={containerRef}
         canEdit={canEdit}
         isGroupingMode={isGroupingMode}
+        isUploadingNote={isUploadingNote}
+        setTextNoteBeingEdited={setTextNoteBeingEdited}
+        setShowTextNoteModal={setShowTextNoteModal}
         setIsGroupingMode={setIsGroupingMode}
         setTargetGroupId={setTargetGroupId}
         setSelectedIds={setSelectedIds}
