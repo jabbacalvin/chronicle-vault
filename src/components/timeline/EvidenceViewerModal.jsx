@@ -54,11 +54,11 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
       {modalGroup && (
         <div
           onClick={handleCloseModal}
-          className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 cursor-pointer"
+          className="cv-evidence-viewer fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 cursor-pointer"
         >
           {/* Modal Header Bar */}
           <div
-            className="w-full max-w-4xl flex items-center justify-between text-slate-200 z-10"
+            className="cv-viewer-header w-full max-w-4xl flex items-center justify-between text-slate-200 z-10"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -140,10 +140,10 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
 
           {/* Photo and memo panel share this viewer for both a single photo and a carousel. */}
           <div
-            className="relative flex-1 min-h-0 w-full max-w-7xl my-3 lg:px-14 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-6"
+            className="cv-viewer-content relative flex-1 min-h-0 w-full max-w-7xl my-3 lg:px-14 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden">
+            <div className="cv-viewer-media relative flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden">
               {isModalImageLoading ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -173,7 +173,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
 
             {currentModalPhoto &&
               (modalGroup.isEventGroup || currentModalPhoto.type !== "text_note") && (
-              <aside className="w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl text-center">
+              <aside className="cv-viewer-details w-full lg:w-80 xl:w-96 h-fit min-h-0 max-h-full self-center shrink-0 overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900/95 p-4 sm:p-5 shadow-2xl text-center">
                 {modalGroup.isEventGroup && (
                   <section className="mb-4 border-b border-slate-700 pb-4">
                     {isEditingModalGroup ? (
