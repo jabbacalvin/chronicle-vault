@@ -252,35 +252,10 @@ export function calculateTimelineLayout({
           return centers;
         };
 
-        let fittedCenters = findFittedCardCenters(dayWidth);
-        let lowerWidth = dayWidth;
-        let upperWidth = dayWidth;
-        while (!fittedCenters && upperWidth < maxDayWidth) {
-          lowerWidth = upperWidth;
-          upperWidth = Math.min(maxDayWidth, upperWidth + 16);
-          fittedCenters = findFittedCardCenters(upperWidth);
-        }
-        if (fittedCenters) {
-          // Narrow the expanded day to the smallest width that still keeps
-          // every card clear of its neighbors and the other timestamp stems.
-          let low = lowerWidth;
-          let high = upperWidth;
-          for (let iteration = 0; iteration < 12 && high - low > 1; iteration += 1) {
-            const middle = (low + high) / 2;
-            const middleCenters = findFittedCardCenters(middle);
-            if (middleCenters) {
-              high = middle;
-              fittedCenters = middleCenters;
-            } else {
-              low = middle;
-            }
-          }
-          dayWidth = high;
-          fittedCenters = findFittedCardCenters(dayWidth) || fittedCenters;
-        } else {
-          dayWidth = maxDayWidth;
-        }
-
+        // Keep day width tied to the actual time span. If same-side cards
+        // cannot fit on one row at this scale, the placement pass below uses
+        // additional lanes instead of stretching the entire day.
+        const fittedCenters = findFittedCardCenters(dayWidth);
         if (fittedCenters) {
           fittedCenters.forEach((center, entryIndex) => {
             cardCentersByIndex.set(entryIndex, center);
