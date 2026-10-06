@@ -42,6 +42,7 @@ const MAX_TIMELINE_ZOOM = 3;
 const COMPACT_ZOOM_THRESHOLD = 0.6;
 const TIMELINE_LANE_SPACING = 260;
 const TIMELINE_CARD_AXIS_CLEARANCE = 300;
+const TIMELINE_DATE_LABEL_CLEARANCE = 220;
 const MIN_DATE_LABEL_SPACING = 112;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
@@ -389,9 +390,10 @@ export default function TimelinePage({
       const dayLeft = TIMELINE_LEFT_PADDING + dayIndex * dayWidth;
       const dayRight = dayLeft + dayWidth;
       const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
+      const cardGutter = 28;
       const cardX = Math.min(
-        dayRight - cardHalfWidth - 8,
-        Math.max(dayLeft + cardHalfWidth + 8, itemX),
+        dayRight - cardHalfWidth - cardGutter,
+        Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
       );
       const leftEdge = cardX - occupiedWidth / 2;
       const preferredSide = index % 2 === 0 ? 0 : 1;
@@ -422,6 +424,7 @@ export default function TimelinePage({
     const bottomLaneCount = laneEnds[1].length;
     const topExtent = topLaneCount
       ? TIMELINE_CARD_AXIS_CLEARANCE +
+        TIMELINE_DATE_LABEL_CLEARANCE +
         (topLaneCount - 1) * TIMELINE_LANE_SPACING
       : 32;
     const bottomExtent = bottomLaneCount
@@ -1759,7 +1762,10 @@ export default function TimelinePage({
                 />
 
                 {/* Timeline marker diamond */}
-                <div className="relative z-20" aria-hidden={timelineLayout.isCompact}>
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+                  aria-hidden={timelineLayout.isCompact}
+                >
                   <div
                     className={`${timelineLayout.isCompact ? "w-4 h-4" : "w-3 h-3"} rotate-45 border border-slate-950 shadow-[0_0_6px_rgba(245,158,11,0.7)] transition-colors duration-500 ${
                       isTargetGroup
