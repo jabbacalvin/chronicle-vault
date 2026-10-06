@@ -1725,7 +1725,8 @@ export default function TimelinePage({
                 }
                 style={{
                   left: entryLayout.x - TIMELINE_MARKER_WIDTH / 2,
-                  top: timelineLayout.axisY - 144,
+                  top: timelineLayout.axisY,
+                  transform: "translateY(-50%)",
                 }}
                 className={`absolute w-8 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
                 onKeyDown={(event) => {
