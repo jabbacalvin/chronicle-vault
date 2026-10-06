@@ -46,9 +46,9 @@ const TIMELINE_CARD_AXIS_CLEARANCE = 300;
 const TIMELINE_BOTTOM_CARD_CLEARANCE = 500;
 const TIMELINE_DATE_LABEL_CLEARANCE = 180;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
-const TIMELINE_DATE_LABEL_CARD_GAP = 28;
+const TIMELINE_DATE_LABEL_CARD_GAP = 36;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
-const TIMELINE_CARD_CONNECTOR_OVERLAP = 8;
+const TIMELINE_CARD_CONNECTOR_OVERLAP = 4;
 const MIN_DATE_LABEL_SPACING = 112;
 
 const getTimelineDateLabelWidth = (label) =>
@@ -366,7 +366,7 @@ export default function TimelinePage({
       ? TIMELINE_MARKER_WIDTH
       : TIMELINE_CARD_WIDTH;
     const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
-    const cardGutter = 40;
+    const cardGutter = 32;
     const cardInset = cardHalfWidth + cardGutter;
     const minimumCardDayWidth = cardInset * 2;
     const minCardCenterSeparation =
