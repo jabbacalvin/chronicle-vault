@@ -42,9 +42,6 @@ const MIN_TIMELINE_ZOOM = 0.05;
 const MAX_TIMELINE_ZOOM = 3;
 const COMPACT_ZOOM_THRESHOLD = 0.6;
 const TIMELINE_LANE_SPACING = 260;
-const TIMELINE_CARD_AXIS_CLEARANCE = 300;
-const TIMELINE_BOTTOM_CARD_CLEARANCE = 500;
-const TIMELINE_DATE_LABEL_CLEARANCE = 180;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
 const TIMELINE_DATE_LABEL_CARD_GAP = 36;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
@@ -127,6 +124,8 @@ export default function TimelinePage({
 
   const containerRef = useRef(null);
   const cardRefs = useRef({});
+  const cardContentRefs = useRef({});
+  const [measuredCardHeights, setMeasuredCardHeights] = useState({});
   const objectUrlsRef = useRef(new Set());
 
   useEffect(() => {
@@ -309,6 +308,35 @@ export default function TimelinePage({
     });
   }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
 
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return undefined;
+
+    const updateMeasurements = () => {
+      const nextMeasurements = {};
+      Object.entries(cardContentRefs.current).forEach(([id, element]) => {
+        if (element) {
+          nextMeasurements[id] = Math.ceil(
+            element.getBoundingClientRect().height,
+          );
+        }
+      });
+      setMeasuredCardHeights((previous) => {
+        const ids = Object.keys(nextMeasurements);
+        const unchanged =
+          ids.length === Object.keys(previous).length &&
+          ids.every((id) => previous[id] === nextMeasurements[id]);
+        return unchanged ? previous : nextMeasurements;
+      });
+    };
+    const observer = new ResizeObserver(updateMeasurements);
+
+    Object.values(cardContentRefs.current).forEach((element) => {
+      if (element) observer.observe(element);
+    });
+    updateMeasurements();
+    return () => observer.disconnect();
+  }, [filteredDisplayItems, editingId, isGroupingMode, canEdit]);
+
   const timelineLayout = useMemo(() => {
     if (filteredDisplayItems.length === 0) {
       return {
@@ -377,6 +405,7 @@ export default function TimelinePage({
         : cardInset + (ratio - group.firstTimeRatio) * dayWidth;
     const dayWidths = new Map();
     const dayOffsets = new Map();
+    const cardCentersByIndex = new Map();
     let totalDayWidth = 0;
 
     dayGroups.forEach((group) => {
@@ -390,14 +419,19 @@ export default function TimelinePage({
       if (!isCompact) {
         // Start each active day at its first event instead of reserving space
         // from midnight. The time differences between events remain linear.
-        const maxFittedWidth = baseDayWidth * 8;
+        const maxDayWidth = Math.max(
+          baseDayWidth * 8,
+          (group.entries.length + 1) * minCardCenterSeparation +
+            2 * cardInset +
+            TIMELINE_CARD_SPACING,
+        );
         const widthForActiveSpan =
           activeTimeSpan < 1
             ? (2 * cardInset) / (1 - activeTimeSpan)
-            : maxFittedWidth;
+            : maxDayWidth;
         dayWidth = Math.max(
           dayWidth,
-          Math.min(maxFittedWidth, widthForActiveSpan),
+          Math.min(maxDayWidth, widthForActiveSpan),
         );
 
         const dayLabel = group.dayStart.toLocaleDateString([], {
@@ -405,30 +439,130 @@ export default function TimelinePage({
           day: "numeric",
           year: "numeric",
         });
-        const labelRight =
-          TIMELINE_DATE_LABEL_LEFT_OFFSET +
-          getTimelineDateLabelWidth(dayLabel);
+        const labelLeft = TIMELINE_DATE_LABEL_LEFT_OFFSET;
+        const labelRight = labelLeft + getTimelineDateLabelWidth(dayLabel);
         const labelSafeCardCenter =
           labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
-        const needsLabelClearance = group.entries.some(
-          ({ index, timeRatio }) => {
-            if (index % 2 !== 0) return false;
-            const cardCenter = cardCenterForRatio(
-              timeRatio,
-              group,
-              baseDayWidth,
-            );
-            return (
-              cardCenter - cardHalfWidth < labelRight &&
-              cardCenter + cardHalfWidth > TIMELINE_DATE_LABEL_LEFT_OFFSET
-            );
-          },
-        );
-        if (needsLabelClearance) {
-          dayWidth = Math.max(
-            dayWidth,
-            labelSafeCardCenter + cardHalfWidth + cardGutter,
+        const connectorReach =
+          cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
+        const requiredRightBuffer = cardGutter + TIMELINE_CARD_SPACING;
+
+        const findFittedCardCenters = (candidateWidth) => {
+          const centers = new Map();
+          const markerCenters = new Map(
+            group.entries.map((entry) => [
+              entry.index,
+              cardCenterForRatio(entry.timeRatio, group, candidateWidth),
+            ]),
           );
+          const sides = [[], []];
+          group.entries.forEach((entry) => {
+            sides[entry.index % 2].push(entry);
+          });
+
+          for (let side = 0; side < sides.length; side += 1) {
+            const chosenCenters = [];
+            const entriesOnSide = sides[side];
+            for (const entry of entriesOnSide) {
+              const markerCenter = markerCenters.get(entry.index);
+              const lowerBound = Math.max(
+                cardInset,
+                markerCenter - connectorReach,
+              );
+              const upperBound = Math.min(
+                candidateWidth - cardHalfWidth - requiredRightBuffer,
+                markerCenter + connectorReach,
+              );
+              let selectedCenter = null;
+              const minCandidate = Math.ceil(lowerBound);
+              const maxCandidate = Math.floor(upperBound);
+
+              for (
+                let distance = 0;
+                distance <= maxCandidate - minCandidate && selectedCenter === null;
+                distance += 2
+              ) {
+                const candidates = distance === 0
+                  ? [Math.round(markerCenter)]
+                  : [
+                      Math.round(markerCenter - distance),
+                      Math.round(markerCenter + distance),
+                    ];
+                for (const candidate of candidates) {
+                  if (candidate < minCandidate || candidate > maxCandidate) {
+                    continue;
+                  }
+                  if (
+                    side === 0 &&
+                    candidate - cardHalfWidth < labelRight &&
+                    candidate + cardHalfWidth > labelLeft
+                  ) {
+                    continue;
+                  }
+                  const overlapsAnotherCard = chosenCenters.some(
+                    (center) =>
+                      Math.abs(candidate - center) <
+                      minCardCenterSeparation,
+                  );
+                  if (overlapsAnotherCard) continue;
+
+                  const crossesAnotherConnector = entriesOnSide.some(
+                    (otherEntry) =>
+                      otherEntry.index !== entry.index &&
+                      Math.abs(
+                        candidate - markerCenters.get(otherEntry.index),
+                      ) <
+                        cardHalfWidth +
+                          TIMELINE_CARD_CONNECTOR_OVERLAP,
+                  );
+                  if (crossesAnotherConnector) continue;
+
+                  selectedCenter = candidate;
+                  break;
+                }
+              }
+
+              if (selectedCenter === null) return null;
+              chosenCenters.push(selectedCenter);
+              centers.set(entry.index, selectedCenter);
+            }
+          }
+          return centers;
+        };
+
+        let fittedCenters = findFittedCardCenters(dayWidth);
+        let lowerWidth = dayWidth;
+        let upperWidth = dayWidth;
+        while (!fittedCenters && upperWidth < maxDayWidth) {
+          lowerWidth = upperWidth;
+          upperWidth = Math.min(maxDayWidth, upperWidth + 16);
+          fittedCenters = findFittedCardCenters(upperWidth);
+        }
+        if (fittedCenters) {
+          // Narrow the expanded day to the smallest width that still keeps
+          // every card clear of its neighbors and the other timestamp stems.
+          let low = lowerWidth;
+          let high = upperWidth;
+          for (let iteration = 0; iteration < 12 && high - low > 1; iteration += 1) {
+            const middle = (low + high) / 2;
+            const middleCenters = findFittedCardCenters(middle);
+            if (middleCenters) {
+              high = middle;
+              fittedCenters = middleCenters;
+            } else {
+              low = middle;
+            }
+          }
+          dayWidth = high;
+          fittedCenters = findFittedCardCenters(dayWidth) || fittedCenters;
+        } else {
+          dayWidth = maxDayWidth;
+        }
+
+        if (fittedCenters) {
+          fittedCenters.forEach((center, entryIndex) => {
+            cardCentersByIndex.set(entryIndex, center);
+          });
         }
       }
 
@@ -437,7 +571,7 @@ export default function TimelinePage({
       totalDayWidth += dayWidth;
     });
 
-    const xForTimestamp = (timestamp) => {
+        const xForTimestamp = (timestamp) => {
       const itemDayStart = getLocalDayStart(timestamp);
       const dayOrdinal = localDayOrdinal(itemDayStart);
       const nextDayStart = new Date(itemDayStart);
@@ -489,15 +623,19 @@ export default function TimelinePage({
       const dayLeft =
         TIMELINE_LEFT_PADDING + dayOffsets.get(dayOrdinal);
       const dayRight = dayLeft + dayWidths.get(dayOrdinal);
-      let cardX = Math.min(
-        dayRight - cardHalfWidth - cardGutter,
-        Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
-      );
+      const fittedCardCenter = cardCentersByIndex.get(index);
+      const hasFittedCardCenter = Number.isFinite(fittedCardCenter);
+      let cardX = hasFittedCardCenter
+        ? dayLeft + fittedCardCenter
+        : Math.min(
+            dayRight - cardHalfWidth - cardGutter,
+            Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
+          );
       const preferredSide = index % 2 === 0 ? 0 : 1;
       const dayMarker = dateMarkers.find(
         (marker) => marker.dayOrdinal === dayOrdinal,
       );
-      if (preferredSide === 0 && dayMarker?.showLabel) {
+      if (!hasFittedCardCenter && preferredSide === 0 && dayMarker?.showLabel) {
         const labelLeft = dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET;
         const labelRight = labelLeft + dayMarker.labelWidth;
         const minCardCenter =
@@ -515,7 +653,7 @@ export default function TimelinePage({
       // the card; keep its timestamp marker and vertical connector in place.
       const desiredRightGap = cardGutter + TIMELINE_CARD_SPACING;
       const currentRightGap = dayRight - (cardX + cardHalfWidth);
-      if (currentRightGap < desiredRightGap) {
+      if (!hasFittedCardCenter && currentRightGap < desiredRightGap) {
         const labelLeft = dayMarker
           ? dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET
           : 0;
@@ -570,23 +708,35 @@ export default function TimelinePage({
       entries.push({ id: item.id, x: itemX, cardX, side, lane });
     });
 
-    const topLaneCount = laneEnds[0].length;
-    const bottomLaneCount = laneEnds[1].length;
-    const topExtent = topLaneCount
-      ? TIMELINE_CARD_AXIS_CLEARANCE +
-        TIMELINE_DATE_LABEL_CLEARANCE +
-        (topLaneCount - 1) * TIMELINE_LANE_SPACING
-      : 32;
-    const bottomExtent = bottomLaneCount
-      ? TIMELINE_BOTTOM_CARD_CLEARANCE +
-        (bottomLaneCount - 1) * TIMELINE_LANE_SPACING
-      : 32;
+    const viewportHeight = timelineViewport.height || 600;
+    const defaultCardHeight = 280;
+    const topCardExtent = entries.reduce((extent, entry) => {
+      if (entry.side !== 0) return extent;
+      const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
+      return Math.max(
+        extent,
+        64 + entry.lane * TIMELINE_LANE_SPACING + 64 + cardHeight,
+      );
+    }, 0);
+    const bottomCardExtent = entries.reduce((extent, entry) => {
+      if (entry.side !== 1) return extent;
+      const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
+      return Math.max(
+        extent,
+        64 + entry.lane * TIMELINE_LANE_SPACING + cardHeight + 12,
+      );
+    }, 0);
+    const topExtent = isCompact ? 32 : topCardExtent;
+    const bottomExtent = isCompact ? 32 : bottomCardExtent;
     const canvasHeight = Math.max(
-      timelineViewport.height || 600,
-      topExtent + bottomExtent + 32,
+      viewportHeight,
+      topExtent + bottomExtent + 16,
     );
-    const axisY =
-      topExtent + (canvasHeight - topExtent - bottomExtent) / 2;
+    const preferredAxisY = viewportHeight * 0.528;
+    const axisY = Math.max(
+      topExtent,
+      Math.min(preferredAxisY, canvasHeight - bottomExtent),
+    );
     const canvasWidth = Math.max(
       viewportWidth,
       TIMELINE_LEFT_PADDING + totalDayWidth + TIMELINE_RIGHT_PADDING,
@@ -601,7 +751,7 @@ export default function TimelinePage({
       zoom,
       isCompact,
     };
-  }, [filteredDisplayItems, timelineZoom, isFitView, timelineViewport]);
+  }, [filteredDisplayItems, timelineZoom, isFitView, timelineViewport, measuredCardHeights]);
   const selectedImages = useMemo(
     () =>
       selectedIds
@@ -1949,6 +2099,9 @@ export default function TimelinePage({
 
                     {/* TOP MAIN CARD */}
                     <div
+                      ref={(element) => {
+                        cardContentRefs.current[item.id] = element;
+                      }}
                       className={`relative z-20 bg-slate-900 border rounded-md p-3 shadow-xl transition-all duration-300 flex flex-col gap-2 ${cardBorderStyle}`}
                     >
                       {/* Checkbox badge during grouping mode */}
