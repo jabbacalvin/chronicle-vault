@@ -32,7 +32,7 @@ const toDateTimeLocalValue = (timestamp) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-const TIMELINE_DAY_WIDTH = 432;
+const TIMELINE_DAY_WIDTH = 700;
 const TIMELINE_CARD_WIDTH = 192;
 const TIMELINE_MARKER_WIDTH = 32;
 const TIMELINE_LEFT_PADDING = 48;
