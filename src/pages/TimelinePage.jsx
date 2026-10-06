@@ -46,7 +46,7 @@ const TIMELINE_CARD_AXIS_CLEARANCE = 300;
 const TIMELINE_BOTTOM_CARD_CLEARANCE = 500;
 const TIMELINE_DATE_LABEL_CLEARANCE = 180;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
-const TIMELINE_DATE_LABEL_CARD_GAP = 8;
+const TIMELINE_DATE_LABEL_CARD_GAP = 28;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
 const MIN_DATE_LABEL_SPACING = 112;
 
@@ -513,6 +513,7 @@ export default function TimelinePage({
         dayRight - cardHalfWidth - cardGutter,
         Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
       );
+      const naturalCardX = cardX;
       const preferredSide = index % 2 === 0 ? 0 : 1;
       const dayMarker = dateMarkers.find(
         (marker) => marker.dayOrdinal === dayOrdinal,
@@ -552,7 +553,7 @@ export default function TimelinePage({
       }
 
       laneEnds[side][lane] = cardX + occupiedWidth / 2;
-      entries.push({ id: item.id, x: itemX, cardX, side, lane });
+      entries.push({ id: item.id, x: itemX, cardX, side, lane, cardNudgeX: cardX - naturalCardX });
     });
 
     const topLaneCount = laneEnds[0].length;
@@ -1812,6 +1813,12 @@ export default function TimelinePage({
             const laneIndex = entryLayout.lane;
             const connectorLength =
               64 + laneIndex * TIMELINE_LANE_SPACING;
+            const connectorNudgeX = entryLayout.cardNudgeX || 0;
+            const connectorWidth = Math.abs(connectorNudgeX);
+            const connectorStartX =
+              connectorNudgeX < 0 ? connectorWidth : 0;
+            const connectorEndX =
+              connectorNudgeX < 0 ? 0 : connectorWidth;
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
@@ -1863,7 +1870,7 @@ export default function TimelinePage({
                   top: timelineLayout.axisY,
                   transform: "translateY(-50%)",
                 }}
-                className={`absolute w-8 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
+                className={`group absolute w-8 h-72 flex flex-col items-center justify-center z-10 ${wrapperClass} ${timelineLayout.isCompact ? "cursor-pointer" : ""}`}
                 onKeyDown={(event) => {
                   if (
                     timelineLayout.isCompact &&
@@ -1890,12 +1897,42 @@ export default function TimelinePage({
                 }}
               >
                 {/* Vertical connector */}
-                <div
-                  className={`absolute left-1/2 -translate-x-1/2 w-0.5 bg-amber-500/80 z-0 ${
-                    isTop ? "bottom-1/2" : "top-1/2"
-                  }`}
-                  style={{ height: connectorLength }}
-                />
+                {Math.abs(connectorNudgeX) > 0.5 ? (
+                  <svg
+                    aria-hidden="true"
+                    className="absolute z-0 overflow-visible pointer-events-none"
+                    style={{
+                      left: `calc(50% + ${Math.min(0, connectorNudgeX)}px)`,
+                      top: isTop
+                        ? `calc(50% - ${connectorLength}px)`
+                        : "50%",
+                      width: Math.max(1, connectorWidth),
+                      height: connectorLength,
+                    }}
+                    viewBox={`0 0 ${Math.max(1, connectorWidth)} ${connectorLength}`}
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d={
+                        isTop
+                          ? `M ${connectorStartX} ${connectorLength} L ${connectorEndX} 0`
+                          : `M ${connectorStartX} 0 L ${connectorEndX} ${connectorLength}`
+                      }
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      className="text-amber-500/80 transition-colors duration-150 group-hover:text-amber-300 group-hover:drop-shadow-[0_0_5px_rgba(252,211,77,0.85)]"
+                    />
+                  </svg>
+                ) : (
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 w-0.5 bg-amber-500/80 z-0 transition-colors duration-150 group-hover:bg-amber-300 group-hover:shadow-[0_0_8px_rgba(252,211,77,0.85)] ${
+                      isTop ? "bottom-1/2" : "top-1/2"
+                    }`}
+                    style={{ height: connectorLength }}
+                  />
+                )}
 
                 {/* Timeline marker diamond */}
                 <div
@@ -1903,7 +1940,7 @@ export default function TimelinePage({
                   aria-hidden={timelineLayout.isCompact}
                 >
                   <div
-                    className={`${timelineLayout.isCompact ? "w-4 h-4" : "w-3 h-3"} rotate-45 border border-slate-950 shadow-[0_0_6px_rgba(245,158,11,0.7)] transition-colors duration-500 ${
+                    className={`${timelineLayout.isCompact ? "w-4 h-4" : "w-3 h-3"} rotate-45 border border-slate-950 shadow-[0_0_6px_rgba(245,158,11,0.7)] transition-all duration-150 group-hover:bg-amber-300 group-hover:scale-125 group-hover:shadow-[0_0_14px_rgba(252,211,77,1)] ${
                       isTargetGroup
                         ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,1)]"
                         : item.updatedRecently
