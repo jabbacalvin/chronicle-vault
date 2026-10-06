@@ -72,8 +72,8 @@ export default function AdminAccessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <section role="dialog" aria-modal="true" aria-labelledby="admin-access-title" className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+    <div className="cv-modal-backdrop fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="admin-access-title" className="cv-modal-panel w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="admin-access-title" className="flex items-center gap-2 text-base font-semibold text-slate-100">
