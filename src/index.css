@@ -429,3 +429,10 @@ body,
     min-height: 2.75rem;
   }
 }
+
+
+@media (max-width: 640px) {
+  .cv-timeline-date-label {
+    top: 1.125rem;
+  }
+}
