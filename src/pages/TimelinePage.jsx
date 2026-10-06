@@ -32,7 +32,7 @@ const toDateTimeLocalValue = (timestamp) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-const TIMELINE_DAY_WIDTH = 700;
+const TIMELINE_DAY_WIDTH = 432;
 const TIMELINE_CARD_WIDTH = 192;
 const TIMELINE_MARKER_WIDTH = 32;
 const TIMELINE_LEFT_PADDING = 48;
@@ -314,17 +314,31 @@ export default function TimelinePage({
       };
     }
 
-    const earliestTimestamp = Number(filteredDisplayItems[0].timestamp);
-    const latestTimestamp = Number(
-      filteredDisplayItems[filteredDisplayItems.length - 1].timestamp,
-    );
-    const firstDayStart = getLocalDayStart(earliestTimestamp);
-    const lastDayStart = getLocalDayStart(latestTimestamp);
     const localDayOrdinal = (date) =>
       Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) /
       (24 * HOUR_MILLISECONDS);
-    const dayCount =
-      localDayOrdinal(lastDayStart) - localDayOrdinal(firstDayStart) + 1;
+    const dayGroupsByOrdinal = new Map();
+
+    filteredDisplayItems.forEach((item, index) => {
+      const dayStart = getLocalDayStart(item.timestamp);
+      const dayOrdinal = localDayOrdinal(dayStart);
+      const nextDayStart = new Date(dayStart);
+      nextDayStart.setDate(nextDayStart.getDate() + 1);
+      const timeRatio =
+        (Number(item.timestamp) - dayStart.getTime()) /
+        (nextDayStart.getTime() - dayStart.getTime());
+      const group = dayGroupsByOrdinal.get(dayOrdinal) || {
+        dayStart,
+        dayOrdinal,
+        entries: [],
+      };
+      group.entries.push({ item, index, timeRatio });
+      dayGroupsByOrdinal.set(dayOrdinal, group);
+    });
+
+    const dayGroups = Array.from(dayGroupsByOrdinal.values()).sort(
+      (a, b) => a.dayOrdinal - b.dayOrdinal,
+    );
     const viewportWidth = timelineViewport.width || 800;
     const fitAvailableWidth = Math.max(
       TIMELINE_MARKER_WIDTH + 1,
@@ -335,27 +349,100 @@ export default function TimelinePage({
     );
     const fitZoom = Math.min(
       1,
-      fitAvailableWidth / (dayCount * TIMELINE_DAY_WIDTH),
+      fitAvailableWidth / (dayGroups.length * TIMELINE_DAY_WIDTH),
     );
     const zoom = isFitView ? fitZoom : timelineZoom;
     const isCompact = isFitView || zoom < COMPACT_ZOOM_THRESHOLD;
-    const dayWidth = TIMELINE_DAY_WIDTH * zoom;
+    const baseDayWidth = TIMELINE_DAY_WIDTH * zoom;
     const occupiedWidth = isCompact
       ? TIMELINE_MARKER_WIDTH
       : TIMELINE_CARD_WIDTH;
+    const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
+    const cardGutter = 28;
+    const minCardCenterSeparation = TIMELINE_CARD_WIDTH + 8;
+    const cardCenterForRatio = (ratio, dayWidth) => {
+      const inset = cardHalfWidth + cardGutter;
+      return Math.min(
+        dayWidth - inset,
+        Math.max(inset, ratio * dayWidth),
+      );
+    };
+    const dayWidths = new Map();
+    const dayOffsets = new Map();
+    let totalDayWidth = 0;
+
+    dayGroups.forEach((group) => {
+      let dayWidth = baseDayWidth;
+
+      if (!isCompact) {
+        const preferredSides = [[], []];
+        group.entries.forEach(({ index, timeRatio }) => {
+          preferredSides[index % 2].push(timeRatio);
+        });
+
+        const hasCardCollisionsAtWidth = (candidateWidth) =>
+          preferredSides.some((ratios) => {
+            for (let index = 1; index < ratios.length; index += 1) {
+              const leftCenter = cardCenterForRatio(
+                ratios[index - 1],
+                candidateWidth,
+              );
+              const rightCenter = cardCenterForRatio(
+                ratios[index],
+                candidateWidth,
+              );
+              if (
+                rightCenter - leftCenter <
+                minCardCenterSeparation
+              ) {
+                return true;
+              }
+            }
+            return false;
+          });
+
+        let upperWidth = baseDayWidth;
+        const maxDayWidth = baseDayWidth * 8;
+        while (
+          upperWidth < maxDayWidth &&
+          hasCardCollisionsAtWidth(upperWidth)
+        ) {
+          upperWidth = Math.min(maxDayWidth, upperWidth * 2);
+        }
+
+        if (hasCardCollisionsAtWidth(upperWidth)) {
+          dayWidth = upperWidth;
+        } else {
+          let lowerWidth = baseDayWidth;
+          for (let iteration = 0; iteration < 24; iteration += 1) {
+            const middleWidth = (lowerWidth + upperWidth) / 2;
+            if (hasCardCollisionsAtWidth(middleWidth)) {
+              lowerWidth = middleWidth;
+            } else {
+              upperWidth = middleWidth;
+            }
+          }
+          dayWidth = upperWidth;
+        }
+      }
+
+      dayOffsets.set(group.dayOrdinal, totalDayWidth);
+      dayWidths.set(group.dayOrdinal, dayWidth);
+      totalDayWidth += dayWidth;
+    });
+
     const xForTimestamp = (timestamp) => {
       const itemDayStart = getLocalDayStart(timestamp);
-      const dayIndex =
-        localDayOrdinal(itemDayStart) - localDayOrdinal(firstDayStart);
+      const dayOrdinal = localDayOrdinal(itemDayStart);
       const nextDayStart = new Date(itemDayStart);
       nextDayStart.setDate(nextDayStart.getDate() + 1);
-      const timeOfDayRatio =
+      const timeRatio =
         (Number(timestamp) - itemDayStart.getTime()) /
         (nextDayStart.getTime() - itemDayStart.getTime());
       return (
         TIMELINE_LEFT_PADDING +
-        dayIndex * dayWidth +
-        timeOfDayRatio * dayWidth
+        dayOffsets.get(dayOrdinal) +
+        timeRatio * dayWidths.get(dayOrdinal)
       );
     };
 
@@ -364,16 +451,14 @@ export default function TimelinePage({
     const dateMarkers = [];
     let lastDateLabelX = -Infinity;
 
-    for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
-      const dayStart = new Date(firstDayStart);
-      dayStart.setDate(dayStart.getDate() + dayIndex);
-      const dateX = TIMELINE_LEFT_PADDING + dayIndex * dayWidth;
+    dayGroups.forEach((group, index) => {
+      const dateX = TIMELINE_LEFT_PADDING + dayOffsets.get(group.dayOrdinal);
       const showLabel =
-        dayIndex === 0 || dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
+        index === 0 || dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
       dateMarkers.push({
-        id: `day-${dayStart.getTime()}`,
+        id: `day-${group.dayStart.getTime()}`,
         left: dateX,
-        label: dayStart.toLocaleDateString([], {
+        label: group.dayStart.toLocaleDateString([], {
           month: "short",
           day: "numeric",
           year: "numeric",
@@ -381,17 +466,15 @@ export default function TimelinePage({
         showLabel,
       });
       if (showLabel) lastDateLabelX = dateX;
-    }
+    });
 
     filteredDisplayItems.forEach((item, index) => {
       const itemX = xForTimestamp(item.timestamp);
       const dayStart = getLocalDayStart(item.timestamp);
-      const dayIndex =
-        localDayOrdinal(dayStart) - localDayOrdinal(firstDayStart);
-      const dayLeft = TIMELINE_LEFT_PADDING + dayIndex * dayWidth;
-      const dayRight = dayLeft + dayWidth;
-      const cardHalfWidth = TIMELINE_CARD_WIDTH / 2;
-      const cardGutter = 28;
+      const dayOrdinal = localDayOrdinal(dayStart);
+      const dayLeft =
+        TIMELINE_LEFT_PADDING + dayOffsets.get(dayOrdinal);
+      const dayRight = dayLeft + dayWidths.get(dayOrdinal);
       const cardX = Math.min(
         dayRight - cardHalfWidth - cardGutter,
         Math.max(dayLeft + cardHalfWidth + cardGutter, itemX),
@@ -440,7 +523,7 @@ export default function TimelinePage({
       topExtent + (canvasHeight - topExtent - bottomExtent) / 2;
     const canvasWidth = Math.max(
       viewportWidth,
-      TIMELINE_LEFT_PADDING + dayCount * dayWidth + TIMELINE_RIGHT_PADDING,
+      TIMELINE_LEFT_PADDING + totalDayWidth + TIMELINE_RIGHT_PADDING,
     );
 
     return {
