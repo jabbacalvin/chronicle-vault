@@ -130,21 +130,34 @@ export default function TimelinePage({
 
   useEffect(() => {
     const element = containerRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return undefined;
+    if (!element) return undefined;
 
-    const observer = new ResizeObserver(() => {
+    const measureViewport = () => {
+      const bounds = element.getBoundingClientRect();
       setTimelineViewport({
         width: element.clientWidth,
-        height: element.clientHeight,
+        // Use the visible screen area below the timeline's top edge. This
+        // keeps the day separators full-height even if flex sizing reports a
+        // smaller client height during initial layout.
+        height: Math.max(
+          element.clientHeight,
+          window.innerHeight - bounds.top,
+        ),
       });
-    });
-    observer.observe(element);
-    setTimelineViewport({
-      width: element.clientWidth,
-      height: element.clientHeight,
-    });
+    };
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measureViewport);
 
-    return () => observer.disconnect();
+    observer?.observe(element);
+    window.addEventListener("resize", measureViewport);
+    measureViewport();
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measureViewport);
+    };
   }, []);
 
   // Image performance caches.
