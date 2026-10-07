@@ -159,8 +159,7 @@ export function calculateTimelineLayout({
         const labelSafeCardCenter =
           labelRight +
           TIMELINE_DATE_LABEL_CARD_GAP +
-          cardHalfWidth +
-          16;
+          cardHalfWidth;
         const connectorReach =
           cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
         const requiredRightBuffer = cardGutter + TIMELINE_CARD_SPACING;
