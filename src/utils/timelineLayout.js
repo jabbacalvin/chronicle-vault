@@ -131,7 +131,9 @@ export function calculateTimelineLayout({
       const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
       let dayWidth = isCompact
         ? baseDayWidth
-        : Math.max(baseDayWidth, minimumCardDayWidth);
+        : isMobileTimeline
+          ? minimumCardDayWidth
+          : Math.max(baseDayWidth, minimumCardDayWidth);
 
       if (!isCompact) {
         // Size the active time range at the current zoom's time scale and
