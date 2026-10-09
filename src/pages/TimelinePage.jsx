@@ -356,15 +356,17 @@ export default function TimelinePage({
     releaseItemImageUrl,
   } = useDriveImageLoader(accessToken);
 
-  useEffect(() => {
-    const currentPhoto = modalGroup?.photos?.[modalGroup.currentIndex];
-    if (!isVideoEvidence(currentPhoto)) return undefined;
+  const currentPhoto = modalGroup?.photos?.[modalGroup.currentIndex];
+  const currentPhotoCacheKey = currentPhoto?.fileId || currentPhoto?.id;
+  const currentPhotoIsVideo = isVideoEvidence(currentPhoto);
 
-    return () => releaseItemImageUrl(currentPhoto);
+  useEffect(() => {
+    if (!currentPhotoIsVideo || !currentPhotoCacheKey) return undefined;
+
+    return () => releaseItemImageUrl({ id: currentPhotoCacheKey });
   }, [
-    modalGroup?.groupId,
-    modalGroup?.photos,
-    modalGroup?.currentIndex,
+    currentPhotoCacheKey,
+    currentPhotoIsVideo,
     releaseItemImageUrl,
   ]);
 
