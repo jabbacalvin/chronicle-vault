@@ -114,7 +114,7 @@ export default function App() {
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     document.body.style.margin = "0";
-    document.body.style.height = "100vh";
+    document.body.style.height = "100dvh";
 
     if (!config?.userEmail) return;
 

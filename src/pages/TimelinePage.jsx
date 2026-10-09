@@ -1,5 +1,6 @@
 // src/pages/TimelinePage.jsx
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X, Layers } from "lucide-react";
 import MapModal from "../components/map/MapModal";
 import GroupModal from "../components/timeline/GroupModal";
@@ -1297,8 +1298,9 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       {/* Floating Grouping Action Bar */}
       {/* ------------------------------------------------------------------- */}
-      {canEdit && isGroupingMode && (
-        <div className="cv-group-action-bar absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
+      {canEdit && isGroupingMode &&
+        createPortal(
+        <div className="cv-group-action-bar fixed bg-slate-900 border border-amber-500 shadow-2xl rounded-full px-6 py-3 z-50 flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-sm font-medium text-slate-200">
               {selectedIds.length} items selected
@@ -1345,8 +1347,9 @@ export default function TimelinePage({
               Create Group
             </button>
           )}
-        </div>
-      )}
+        </div>,
+        document.body,
+        )}
 
       {/* ------------------------------------------------------------------- */}
       {/* Create Group Modal */}
