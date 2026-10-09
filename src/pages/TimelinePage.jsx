@@ -15,6 +15,27 @@ const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
+const compareGroupedEvidence = (left, right) => {
+  const leftTimestamp = Number(left.timestamp);
+  const rightTimestamp = Number(right.timestamp);
+  const leftMinute = Number.isFinite(leftTimestamp)
+    ? Math.floor(leftTimestamp / 60_000)
+    : Number.MAX_SAFE_INTEGER;
+  const rightMinute = Number.isFinite(rightTimestamp)
+    ? Math.floor(rightTimestamp / 60_000)
+    : Number.MAX_SAFE_INTEGER;
+
+  return (
+    leftMinute - rightMinute ||
+    String(left.title || left.name || "").localeCompare(
+      String(right.title || right.name || ""),
+      undefined,
+      { numeric: true, sensitivity: "base" },
+    ) ||
+    String(left.id || "").localeCompare(String(right.id || ""))
+  );
+};
+
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
 
@@ -206,7 +227,9 @@ export default function TimelinePage({
         if (item.type === "event_group") {
           return {
             ...item,
-            photos: items.filter((i) => item.fileIds?.includes(i.id)),
+            photos: items
+              .filter((i) => item.fileIds?.includes(i.id))
+              .sort(compareGroupedEvidence),
           };
         }
 
@@ -655,16 +678,22 @@ export default function TimelinePage({
     setIsSavingModalDetails(true);
     setModalEditError("");
     setItems(updatedItems);
-    setModalGroup((previous) =>
-      previous
-        ? {
-            ...previous,
-            photos: previous.photos.map((item) =>
-              item.id === photo.id ? updatedPhoto : item,
-            ),
-          }
-        : previous,
-    );
+    setModalGroup((previous) => {
+      if (!previous) return previous;
+
+      const photos = previous.photos
+        .map((item) => (item.id === photo.id ? updatedPhoto : item))
+        .sort(compareGroupedEvidence);
+
+      return {
+        ...previous,
+        photos,
+        currentIndex: Math.max(
+          0,
+          photos.findIndex((item) => item.id === photo.id),
+        ),
+      };
+    });
 
     try {
       await onSaveEdit?.(updatedItems);
