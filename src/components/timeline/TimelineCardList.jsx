@@ -8,6 +8,7 @@ import {
   X,
   CheckSquare,
   FileText,
+  Film,
 } from "lucide-react";
 import {
   TIMELINE_LANE_SPACING,
@@ -58,6 +59,9 @@ export default function TimelineCardList({
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
             const isGroup = item.type === "event_group";
+            const isVideo =
+              item.type === "video" ||
+              String(item.mimeType || "").toLowerCase().startsWith("video/");
             const isTargetGroup = isGroup && targetGroupId === item.id;
 
             // Determine photo count and GPS availability
@@ -205,7 +209,9 @@ export default function TimelineCardList({
                             ? `GROUP (${photoCount})`
                             : item.type === "text_note"
                               ? "TEXT NOTE"
-                              : `EX ${item.id.slice(0, 4).toUpperCase()}`}
+                              : isVideo
+                                ? "VIDEO"
+                                : `EX ${item.id.slice(0, 4).toUpperCase()}`}
                         </span>
 
                         <div className="flex items-center gap-1">
@@ -322,6 +328,8 @@ export default function TimelineCardList({
                           >
                             {item.type === "text_note" ? (
                               <FileText className="w-3.5 h-3.5" />
+                            ) : isVideo ? (
+                              <Film className="w-3.5 h-3.5" />
                             ) : (
                               <ImageIcon className="w-3.5 h-3.5" />
                             )}
@@ -332,7 +340,9 @@ export default function TimelineCardList({
                                 ? `View Items (${photoCount})`
                                 : item.type === "text_note"
                                   ? "Read Note"
-                                  : "View Evidence"}
+                                  : isVideo
+                                    ? "View Video"
+                                    : "View Evidence"}
                           </button>
 
                           {/* Location Data Button */}
