@@ -484,7 +484,7 @@ export default function App() {
             : "";
 
   return (
-    <div className="cv-app-shell w-full min-h-0 overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
+    <div className="cv-app-shell w-full h-full min-h-0 flex-1 overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col relative m-0 p-0">
       <header className="cv-app-header h-12 border-b border-slate-900 bg-slate-950/85 backdrop-blur px-4 flex items-center justify-between z-45 shrink-0">
         <div className="cv-app-brand flex items-center gap-2 text-xs font-mono text-amber-500">
           <span>⚖</span>
@@ -544,7 +544,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="w-full flex-1 flex flex-col relative overflow-hidden m-0 p-0">
+      <main className="w-full flex-1 min-h-0 flex flex-col relative overflow-hidden m-0 p-0">
         {!config || showSetup ? (
           <SetupModal onSave={handleSaveConfig} />
         ) : (
