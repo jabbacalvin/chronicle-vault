@@ -145,7 +145,12 @@ export function calculateTimelineLayout({
         );
         // Bound collision-driven expansion. When a very dense cluster still
         // cannot fit on one row, the existing lane fallback handles it.
-        const maxDayWidth = Math.max(dayWidth, baseDayWidth * 2);
+        const maxDayWidth = Math.max(
+          dayWidth,
+          baseDayWidth * 2,
+          dayWidth +
+            Math.ceil(group.entries.length / 2) * minCardCenterSeparation,
+        );
 
         const dayLabel = group.dayStart.toLocaleDateString([], {
           month: "short",
@@ -260,7 +265,10 @@ export function calculateTimelineLayout({
         let upperWidth = dayWidth;
         while (!fittedCenters && upperWidth < maxDayWidth) {
           lowerWidth = upperWidth;
-          upperWidth = Math.min(maxDayWidth, upperWidth + 16);
+          upperWidth = Math.min(
+            maxDayWidth,
+            Math.max(upperWidth + 16, upperWidth * 2),
+          );
           fittedCenters = findFittedCardCenters(upperWidth);
         }
         if (fittedCenters) {
@@ -519,35 +527,34 @@ export function calculateTimelineLayout({
 
     const defaultCardHeight = 280;
     const topCardExtent = entries.reduce((extent, entry) => {
-      if (entry.side !== 0) return extent;
+      if (entry.side !== 0 || entry.lane !== 0) return extent;
       const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
-      return Math.max(
-        extent,
-        64 + entry.lane * TIMELINE_LANE_SPACING + 64 + cardHeight,
-      );
+      return Math.max(extent, 64 + 64 + cardHeight);
     }, 0);
     const bottomCardExtent = entries.reduce((extent, entry) => {
-      if (entry.side !== 1) return extent;
+      if (entry.side !== 1 || entry.lane !== 0) return extent;
       const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
-      return Math.max(
-        extent,
-        64 + entry.lane * TIMELINE_LANE_SPACING + cardHeight + 12,
-      );
+      return Math.max(extent, 64 + cardHeight + 12);
     }, 0);
     const topExtent = isCompact ? 32 : topCardExtent;
     const bottomExtent = isCompact ? 32 : bottomCardExtent;
-    // The timeline viewport is fixed-height; horizontal placement absorbs
-    // card collisions so users never need to scroll vertically.
+    // Keep the axis inside the measured viewport. Extra collision lanes on
+    // a crowded day must not move the entire timeline below the screen.
     const canvasHeight = viewportHeight;
-    // The mobile axis shift gives lower cards extra room without adding
-    // vertical scrolling; desktop keeps the existing centered position.
-    const axisY = Math.max(
-      topExtent - mobileAxisShift,
-      Math.min(
-        preferredAxisY - mobileAxisShift,
-        canvasHeight - bottomExtent,
-      ),
+    const hasRoomForFirstRow = topExtent + bottomExtent <= canvasHeight;
+    const preferredAxisYWithinCanvas = Math.max(
+      32,
+      Math.min(preferredAxisY - mobileAxisShift, canvasHeight - 32),
     );
+    const axisY = hasRoomForFirstRow
+      ? Math.max(
+          topExtent - mobileAxisShift,
+          Math.min(
+            preferredAxisYWithinCanvas,
+            canvasHeight - bottomExtent,
+          ),
+        )
+      : preferredAxisYWithinCanvas;
     const canvasWidth = Math.max(
       viewportWidth,
       TIMELINE_LEFT_PADDING + totalDayWidth + TIMELINE_RIGHT_PADDING,
