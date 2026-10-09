@@ -11,6 +11,10 @@ import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
 import { isGoogleDriveAuthorizationError } from "../services/googleDriveService";
 import useDriveImageLoader from "../hooks/useDriveImageLoader";
 
+const isVideoEvidence = (item) =>
+  item?.type === "video" ||
+  String(item?.mimeType || "").toLowerCase().startsWith("video/");
+
 const toDateTimeLocalValue = (timestamp) => {
   if (!Number.isFinite(Number(timestamp))) return "";
 
@@ -349,7 +353,15 @@ export default function TimelinePage({
     getThumbnailUrl,
     fetchItemImageUrl,
     prefetchAdjacentPhotos,
+    releaseItemImageUrl,
   } = useDriveImageLoader(accessToken);
+
+  useEffect(() => {
+    const currentPhoto = modalGroup?.photos?.[modalGroup.currentIndex];
+    if (!isVideoEvidence(currentPhoto)) return undefined;
+
+    return () => releaseItemImageUrl(currentPhoto);
+  }, [modalGroup?.groupId, modalGroup?.currentIndex, releaseItemImageUrl]);
 
   // ---------------------------------------------------------------------------
   // Open evidence viewer modal
@@ -397,7 +409,9 @@ export default function TimelinePage({
 
     try {
       const firstPhoto = photosToView[0];
-      const thumbnailUrl = getThumbnailUrl(firstPhoto);
+      const thumbnailUrl = isVideoEvidence(firstPhoto)
+        ? null
+        : getThumbnailUrl(firstPhoto);
 
       // Paint Google's already-generated preview immediately when available.
       // Full-resolution loading/HEIC conversion continues in the background.
@@ -422,7 +436,7 @@ export default function TimelinePage({
         setAppDialog({
           type: "alert",
           title: "Could not load evidence",
-          message: "Failed to load photo evidence.",
+          message: "Failed to load evidence.",
         });
       }
     } finally {
@@ -449,7 +463,9 @@ export default function TimelinePage({
       return;
     }
     const cachedUrl = getCachedImageUrl(targetPhoto);
-    const thumbnailUrl = getThumbnailUrl(targetPhoto);
+    const thumbnailUrl = isVideoEvidence(targetPhoto)
+      ? null
+      : getThumbnailUrl(targetPhoto);
 
     if (cachedUrl || thumbnailUrl) {
       setActiveImage(cachedUrl || thumbnailUrl);
