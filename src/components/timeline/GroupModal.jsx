@@ -87,7 +87,7 @@ export default function GroupModal({
           </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-slate-800 flex justify-end gap-2 bg-slate-950/50">
+        <div className="px-4 py-3 border-t border-slate-800 flex justify-center sm:justify-end gap-2 bg-slate-950/50">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-md text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
