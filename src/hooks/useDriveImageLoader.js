@@ -10,6 +10,7 @@ export default function useDriveImageLoader(accessToken) {
   // requested while an earlier request is still loading/converting.
   const resolvedImageCacheRef = useRef(new Map());
   const inFlightImageCacheRef = useRef(new Map());
+  const pendingUrlReleasesRef = useRef(new Map());
 
   // ---------------------------------------------------------------------------
   // Cleanup generated blob URLs on unmount
@@ -23,6 +24,8 @@ export default function useDriveImageLoader(accessToken) {
           // Ignore cleanup errors
         }
       });
+      pendingUrlReleasesRef.current.forEach((timer) => clearTimeout(timer));
+      pendingUrlReleasesRef.current.clear();
       objectUrlsRef.current.clear();
       resolvedImageCacheRef.current.clear();
       inFlightImageCacheRef.current.clear();
@@ -95,9 +98,18 @@ export default function useDriveImageLoader(accessToken) {
   const getImageCacheKey = (item) =>
     String(item.fileId || item.id || item.imageUrl || item.thumbnailLink || "");
 
+  const cancelPendingRelease = (url) => {
+    const timer = pendingUrlReleasesRef.current.get(url);
+    if (!timer) return;
+    clearTimeout(timer);
+    pendingUrlReleasesRef.current.delete(url);
+  };
+
   const getCachedImageUrl = (item) => {
     const cacheKey = getImageCacheKey(item);
-    return cacheKey ? resolvedImageCacheRef.current.get(cacheKey) : null;
+    const url = cacheKey ? resolvedImageCacheRef.current.get(cacheKey) : null;
+    if (url?.startsWith("blob:")) cancelPendingRelease(url);
+    return url;
   };
 
   const getThumbnailUrl = (item) => {
@@ -113,7 +125,9 @@ export default function useDriveImageLoader(accessToken) {
     const cacheKey = getImageCacheKey(item);
 
     if (cacheKey && resolvedImageCacheRef.current.has(cacheKey)) {
-      return resolvedImageCacheRef.current.get(cacheKey);
+      const cachedUrl = resolvedImageCacheRef.current.get(cacheKey);
+      if (cachedUrl?.startsWith("blob:")) cancelPendingRelease(cachedUrl);
+      return cachedUrl;
     }
 
     if (cacheKey && inFlightImageCacheRef.current.has(cacheKey)) {
@@ -223,9 +237,16 @@ export default function useDriveImageLoader(accessToken) {
     const url = resolvedImageCacheRef.current.get(cacheKey);
     if (!url || !url.startsWith("blob:")) return;
 
-    URL.revokeObjectURL(url);
-    objectUrlsRef.current.delete(url);
-    resolvedImageCacheRef.current.delete(cacheKey);
+    cancelPendingRelease(url);
+    const timer = setTimeout(() => {
+      pendingUrlReleasesRef.current.delete(url);
+      if (resolvedImageCacheRef.current.get(cacheKey) !== url) return;
+
+      URL.revokeObjectURL(url);
+      objectUrlsRef.current.delete(url);
+      resolvedImageCacheRef.current.delete(cacheKey);
+    }, 2000);
+    pendingUrlReleasesRef.current.set(url, timer);
   }, []);
 
   const prefetchAdjacentPhotos = (photos, currentIndex) => {
