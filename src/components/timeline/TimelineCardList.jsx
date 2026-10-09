@@ -10,10 +10,7 @@ import {
   FileText,
   Film,
 } from "lucide-react";
-import {
-  TIMELINE_LANE_SPACING,
-  TIMELINE_MARKER_WIDTH,
-} from "../../utils/timelineLayout";
+import { TIMELINE_MARKER_WIDTH } from "../../utils/timelineLayout";
 
 export default function TimelineCardList({
   items,
@@ -52,9 +49,7 @@ export default function TimelineCardList({
   return items.map((item, index) => {
             const entryLayout = timelineLayout.entries[index];
             const isTop = entryLayout.side === 0;
-            const laneIndex = entryLayout.lane;
-            const connectorLength =
-              64 + laneIndex * TIMELINE_LANE_SPACING;
+            const connectorLength = 64 + (entryLayout.laneOffset || 0);
             const isEditing = canEdit && editingId === item.id;
             const isThisLoading = loadingItemId === item.id;
             const isSelected = selectedIds.includes(item.id);
