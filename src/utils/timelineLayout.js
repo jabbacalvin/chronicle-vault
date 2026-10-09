@@ -18,6 +18,8 @@ const TIMELINE_DATE_LABEL_TOP = 64;
 const MOBILE_TIMELINE_DATE_LABEL_TOP = 18;
 const MOBILE_TIMELINE_AXIS_SHIFT = 36;
 const TIMELINE_CARD_CONNECTOR_OVERLAP = 4;
+const MIN_DENSE_MARKER_SPACING =
+  (TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING) / 2;
 const MIN_DATE_LABEL_SPACING = 112;
 
 const getTimelineDateLabelWidth = (label) =>
@@ -113,24 +115,24 @@ export function calculateTimelineLayout({
     const minimumCardDayWidth = cardInset * 2;
     const minCardCenterSeparation =
       TIMELINE_CARD_WIDTH + TIMELINE_CARD_SPACING;
-    const cardCenterForRatio = (ratio, group, dayWidth) => {
+    const cardCenterForRatio = (ratio, group, dayWidth, entryIndex) => {
       if (isCompact) return ratio * dayWidth;
       const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
-      const naturalActiveWidth =
-        activeTimeSpan * baseDayWidth * TIMELINE_TIME_GAP_FACTOR;
+      const naturalActiveWidth = group.visualActiveWidth;
       const widthBeyondNaturalRange = Math.max(
         0,
         dayWidth - minimumCardDayWidth - naturalActiveWidth,
       );
       const activeWidth = Math.min(
-        Math.max(0, dayWidth - 2 * cardInset),
-        // Use the day width to spread dense timestamps horizontally before
-        // collision handling needs to create another vertical card lane.
+        Math.max(0, dayWidth - minimumCardDayWidth),
         naturalActiveWidth + widthBeyondNaturalRange,
       );
-      const activeRatio = activeTimeSpan > 0
-        ? (ratio - group.firstTimeRatio) / activeTimeSpan
-        : 0.5;
+      const visualRatio = group.visualRatioByIndex.get(entryIndex);
+      const activeRatio = Number.isFinite(visualRatio)
+        ? visualRatio
+        : activeTimeSpan > 0
+          ? (ratio - group.firstTimeRatio) / activeTimeSpan
+          : 0.5;
       return cardInset + activeRatio * activeWidth;
     };
     const dayWidths = new Map();
@@ -139,9 +141,38 @@ export function calculateTimelineLayout({
     let totalDayWidth = 0;
 
     dayGroups.forEach((group) => {
-      group.firstTimeRatio = Math.min(...group.entries.map((entry) => entry.timeRatio));
-      group.lastTimeRatio = Math.max(...group.entries.map((entry) => entry.timeRatio));
-      const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
+      const timeOrderedEntries = [...group.entries].sort(
+        (left, right) =>
+          left.timeRatio - right.timeRatio || left.index - right.index,
+      );
+      group.firstTimeRatio = timeOrderedEntries[0].timeRatio;
+      group.lastTimeRatio =
+        timeOrderedEntries[timeOrderedEntries.length - 1].timeRatio;
+      let previousVisualPosition = 0;
+      const visualPositions = new Map();
+      timeOrderedEntries.forEach((entry, entryIndex) => {
+        const naturalPosition =
+          (entry.timeRatio - group.firstTimeRatio) *
+          baseDayWidth *
+          TIMELINE_TIME_GAP_FACTOR;
+        const visualPosition = entryIndex === 0
+          ? 0
+          : Math.max(
+              naturalPosition,
+              previousVisualPosition + MIN_DENSE_MARKER_SPACING,
+            );
+        visualPositions.set(entry.index, visualPosition);
+        previousVisualPosition = visualPosition;
+      });
+      group.visualActiveWidth = previousVisualPosition;
+      group.visualRatioByIndex = new Map(
+        timeOrderedEntries.map((entry) => [
+          entry.index,
+          group.visualActiveWidth > 0
+            ? visualPositions.get(entry.index) / group.visualActiveWidth
+            : 0.5,
+        ]),
+      );
       let dayWidth = isCompact
         ? baseDayWidth
         : isMobileTimeline
@@ -154,8 +185,7 @@ export function calculateTimelineLayout({
         // the whole day width when events span nearly a full day.
         dayWidth = Math.max(
           dayWidth,
-          minimumCardDayWidth +
-            activeTimeSpan * baseDayWidth * TIMELINE_TIME_GAP_FACTOR,
+          minimumCardDayWidth + group.visualActiveWidth,
         );
         // Bound collision-driven expansion. When a very dense cluster still
         // cannot fit on one row, the existing lane fallback handles it.
@@ -188,7 +218,12 @@ export function calculateTimelineLayout({
           const markerCenters = new Map(
             group.entries.map((entry) => [
               entry.index,
-              cardCenterForRatio(entry.timeRatio, group, candidateWidth),
+              cardCenterForRatio(
+                entry.timeRatio,
+                group,
+                candidateWidth,
+                entry.index,
+              ),
             ]),
           );
           const sides = [[], []];
@@ -318,7 +353,7 @@ export function calculateTimelineLayout({
       totalDayWidth += dayWidth;
     });
 
-        const xForTimestamp = (timestamp) => {
+        const xForTimestamp = (timestamp, entryIndex) => {
       const itemDayStart = getLocalDayStart(timestamp);
       const dayOrdinal = localDayOrdinal(itemDayStart);
       const nextDayStart = new Date(itemDayStart);
@@ -328,7 +363,12 @@ export function calculateTimelineLayout({
         (nextDayStart.getTime() - itemDayStart.getTime());
       const group = dayGroupsByOrdinal.get(dayOrdinal);
       const dayWidth = dayWidths.get(dayOrdinal);
-      const dayRelativeX = cardCenterForRatio(timeRatio, group, dayWidth);
+      const dayRelativeX = cardCenterForRatio(
+        timeRatio,
+        group,
+        dayWidth,
+        entryIndex,
+      );
       return (
         TIMELINE_LEFT_PADDING +
         dayOffsets.get(dayOrdinal) +
@@ -362,7 +402,7 @@ export function calculateTimelineLayout({
     });
 
     filteredDisplayItems.forEach((item, index) => {
-      const itemX = xForTimestamp(item.timestamp);
+      const itemX = xForTimestamp(item.timestamp, index);
       const dayStart = getLocalDayStart(item.timestamp);
       const dayOrdinal = localDayOrdinal(dayStart);
       const dayLeft =
@@ -509,7 +549,10 @@ export function calculateTimelineLayout({
                   dayOrdinal &&
                 Math.abs(
                   candidate -
-                    xForTimestamp(otherItem.timestamp),
+                    xForTimestamp(
+                      otherItem.timestamp,
+                      otherIndex,
+                    ),
                 ) <
                   cardHalfWidth + TIMELINE_CARD_CONNECTOR_OVERLAP,
             );
