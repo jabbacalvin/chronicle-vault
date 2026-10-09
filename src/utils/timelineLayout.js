@@ -8,6 +8,8 @@ export const MIN_TIMELINE_ZOOM = 0.05;
 export const MAX_TIMELINE_ZOOM = 3;
 const COMPACT_ZOOM_THRESHOLD = 0.6;
 export const TIMELINE_LANE_SPACING = 260;
+const TIMELINE_TIME_GAP_FACTOR = 0.45;
+const TIMELINE_LANE_GAP = 12;
 const TIMELINE_DATE_LABEL_LEFT_OFFSET = 8;
 const TIMELINE_DATE_LABEL_CARD_GAP = 36;
 const TIMELINE_DATE_LABEL_CHAR_WIDTH = 6;
@@ -114,10 +116,19 @@ export function calculateTimelineLayout({
     const cardCenterForRatio = (ratio, group, dayWidth) => {
       if (isCompact) return ratio * dayWidth;
       const activeTimeSpan = group.lastTimeRatio - group.firstTimeRatio;
-      const activeWidth = Math.max(0, dayWidth - 2 * cardInset);
+      const naturalActiveWidth =
+        activeTimeSpan * baseDayWidth * TIMELINE_TIME_GAP_FACTOR;
+      const widthBeyondNaturalRange = Math.max(
+        0,
+        dayWidth - minimumCardDayWidth - naturalActiveWidth,
+      );
+      const activeWidth = Math.min(
+        Math.max(0, dayWidth - 2 * cardInset),
+        naturalActiveWidth + widthBeyondNaturalRange * 0.5,
+      );
       const activeRatio = activeTimeSpan > 0
         ? (ratio - group.firstTimeRatio) / activeTimeSpan
-        : 0;
+        : 0.5;
       return cardInset + activeRatio * activeWidth;
     };
     const dayWidths = new Map();
@@ -141,7 +152,8 @@ export function calculateTimelineLayout({
         // the whole day width when events span nearly a full day.
         dayWidth = Math.max(
           dayWidth,
-          2 * cardInset + activeTimeSpan * baseDayWidth,
+          minimumCardDayWidth +
+            activeTimeSpan * baseDayWidth * TIMELINE_TIME_GAP_FACTOR,
         );
         // Bound collision-driven expansion. When a very dense cluster still
         // cannot fit on one row, the existing lane fallback handles it.
@@ -526,15 +538,34 @@ export function calculateTimelineLayout({
     });
 
     const defaultCardHeight = 280;
-    const topCardExtent = entries.reduce((extent, entry) => {
-      if (entry.side !== 0 || entry.lane !== 0) return extent;
+    const laneHeights = [[], []];
+    entries.forEach((entry) => {
       const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
-      return Math.max(extent, 64 + 64 + cardHeight);
+      laneHeights[entry.side][entry.lane] = Math.max(
+        laneHeights[entry.side][entry.lane] || 0,
+        cardHeight,
+      );
+    });
+    const laneOffsets = [[], []];
+    laneHeights.forEach((heights, side) => {
+      let offset = 0;
+      heights.forEach((height, lane) => {
+        laneOffsets[side][lane] = offset;
+        offset += height + TIMELINE_LANE_GAP;
+      });
+    });
+    entries.forEach((entry) => {
+      entry.laneOffset = laneOffsets[entry.side][entry.lane] || 0;
+    });
+    const topCardExtent = entries.reduce((extent, entry) => {
+      if (entry.side !== 0) return extent;
+      const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
+      return Math.max(extent, entry.laneOffset + 64 + 64 + cardHeight);
     }, 0);
     const bottomCardExtent = entries.reduce((extent, entry) => {
-      if (entry.side !== 1 || entry.lane !== 0) return extent;
+      if (entry.side !== 1) return extent;
       const cardHeight = measuredCardHeights[entry.id] || defaultCardHeight;
-      return Math.max(extent, 64 + cardHeight + 12);
+      return Math.max(extent, entry.laneOffset + 64 + cardHeight + 12);
     }, 0);
     const topExtent = isCompact ? 32 : topCardExtent;
     const bottomExtent = isCompact ? 32 : bottomCardExtent;
