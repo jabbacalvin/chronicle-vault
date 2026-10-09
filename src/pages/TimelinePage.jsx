@@ -361,7 +361,12 @@ export default function TimelinePage({
     if (!isVideoEvidence(currentPhoto)) return undefined;
 
     return () => releaseItemImageUrl(currentPhoto);
-  }, [modalGroup?.groupId, modalGroup?.currentIndex, releaseItemImageUrl]);
+  }, [
+    modalGroup?.groupId,
+    modalGroup?.photos,
+    modalGroup?.currentIndex,
+    releaseItemImageUrl,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Open evidence viewer modal
