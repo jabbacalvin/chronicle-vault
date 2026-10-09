@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { heicTo } from "heic-to";
 
 export default function useDriveImageLoader(accessToken) {
@@ -194,7 +194,13 @@ export default function useDriveImageLoader(accessToken) {
   // Warm an image in the background. Errors are intentionally ignored because
   // prefetching must never interrupt the currently visible evidence.
   const prefetchItemImage = (item) => {
-    if (!item) return;
+    if (
+      !item ||
+      item.type === "video" ||
+      String(item.mimeType || "").toLowerCase().startsWith("video/")
+    ) {
+      return;
+    }
 
     const cacheKey = getImageCacheKey(item);
     if (
@@ -209,6 +215,18 @@ export default function useDriveImageLoader(accessToken) {
       console.debug("Evidence prefetch skipped:", err);
     });
   };
+
+  const releaseItemImageUrl = useCallback((item) => {
+    const cacheKey = getImageCacheKey(item);
+    if (!cacheKey) return;
+
+    const url = resolvedImageCacheRef.current.get(cacheKey);
+    if (!url || !url.startsWith("blob:")) return;
+
+    URL.revokeObjectURL(url);
+    objectUrlsRef.current.delete(url);
+    resolvedImageCacheRef.current.delete(cacheKey);
+  }, []);
 
   const prefetchAdjacentPhotos = (photos, currentIndex) => {
     if (!photos || photos.length <= 1) return;
@@ -232,5 +250,6 @@ export default function useDriveImageLoader(accessToken) {
     getThumbnailUrl,
     fetchItemImageUrl,
     prefetchAdjacentPhotos,
+    releaseItemImageUrl,
   };
 }

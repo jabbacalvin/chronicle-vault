@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,6 +8,7 @@ import {
 } from "lucide-react";
 
 export default function EvidenceViewerModal({ state, actions, canEdit = false }) {
+  const [videoErrorKey, setVideoErrorKey] = useState(null);
   const {
     modalGroup,
     currentModalPhoto,
@@ -26,6 +28,10 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
     modalEditMemo,
     modalEditError
   } = state;
+  const isCurrentVideo =
+    currentModalPhoto?.type === "video" ||
+    String(currentModalPhoto?.mimeType || "").toLowerCase().startsWith("video/");
+  const currentVideoErrorKey = `${currentModalPhoto?.id || ""}:${activeImage || ""}`;
   const {
     setTextNoteBeingEdited,
     setShowTextNoteModal,
@@ -149,7 +155,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                   <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
 
                   <span className="text-xs text-slate-400 font-mono">
-                    Loading evidence...
+                    {isCurrentVideo ? "Loading video..." : "Loading evidence..."}
                   </span>
                 </div>
               ) : currentModalPhoto?.type === "text_note" ? (
@@ -158,6 +164,33 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                     currentModalPhoto.memo ||
                     "(Empty note)"}
                 </article>
+              ) : isCurrentVideo && videoErrorKey === currentVideoErrorKey ? (
+                <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-300">
+                  <span>This video format could not be played in this browser.</span>
+                  {currentModalPhoto?.webViewLink && (
+                    <a
+                      href={currentModalPhoto.webViewLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-amber-300 hover:bg-slate-700"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Open video in Google Drive
+                    </a>
+                  )}
+                </div>
+              ) : activeImage && isCurrentVideo ? (
+                <video
+                  key={currentVideoErrorKey}
+                  src={activeImage}
+                  poster={currentModalPhoto?.thumbnailLink || undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-w-full max-h-full rounded-lg shadow-2xl"
+                  aria-label={currentModalPhoto?.title || "Video evidence"}
+                  onError={() => setVideoErrorKey(currentVideoErrorKey)}
+                />
               ) : activeImage ? (
                 <img
                   src={activeImage}
@@ -166,7 +199,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                 />
               ) : (
                 <div className="text-xs text-slate-400">
-                  Failed to render image.
+                  Failed to render evidence.
                 </div>
               )}
             </div>

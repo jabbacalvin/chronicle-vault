@@ -1,5 +1,28 @@
 import ExifReader from "exifreader";
 
+const VIDEO_MIME_TYPES_BY_EXTENSION = {
+  "3gp": "video/3gpp",
+  avi: "video/x-msvideo",
+  m4v: "video/x-m4v",
+  mkv: "video/x-matroska",
+  mov: "video/quicktime",
+  mp4: "video/mp4",
+  mpeg: "video/mpeg",
+  mpg: "video/mpeg",
+  ogg: "video/ogg",
+  ogv: "video/ogg",
+  webm: "video/webm",
+  wmv: "video/x-ms-wmv",
+};
+
+function getVideoMimeType(file) {
+  const mimeType = String(file.mimeType || "").toLowerCase();
+  if (mimeType.startsWith("video/")) return mimeType;
+
+  const extension = String(file.name || "").split(".").pop().toLowerCase();
+  return VIDEO_MIME_TYPES_BY_EXTENSION[extension] || null;
+}
+
 export function isGoogleDriveAuthorizationError(error) {
   const status = Number(error?.status ?? error?.statusCode ?? error?.response?.status);
   return status === 401 || /unauthorized|invalid credentials|invalid_grant|token.*expired/i.test(String(error?.message || error || ""));
@@ -15,7 +38,7 @@ export async function loadDriveData(accessToken, folderId) {
   try {
     const query = `'${folderId}' in parents and trashed = false`;
     const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webContentLink,thumbnailLink,imageMediaMetadata,createdTime)`,
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webContentLink,webViewLink,thumbnailLink,imageMediaMetadata,createdTime)`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       },
@@ -74,6 +97,7 @@ export async function loadDriveData(accessToken, folderId) {
       (f) =>
         f.name?.toLowerCase().endsWith(".txt") || f.mimeType === "text/plain",
     );
+    const videoFiles = files.filter((file) => getVideoMimeType(file));
 
     // Process each image file asynchronously to extract robust EXIF data
     const items = await Promise.all(
@@ -223,6 +247,46 @@ export async function loadDriveData(accessToken, folderId) {
       }),
     );
 
+    const videoItems = videoFiles.map((file) => {
+      const override = configData.overrides?.[file.id] || {};
+      const overrideTimestamp = override.customDate
+        ? new Date(override.customDate).getTime()
+        : NaN;
+      const createdTimestamp = new Date(file.createdTime).getTime();
+      const timestamp = Number.isFinite(overrideTimestamp)
+        ? overrideTimestamp
+        : Number.isFinite(createdTimestamp)
+          ? createdTimestamp
+          : Date.now();
+      const date = new Date(timestamp);
+      const memo = override.memo ?? override.note ?? "";
+
+      return {
+        id: file.id,
+        fileId: file.id,
+        type: "video",
+        mimeType: getVideoMimeType(file),
+        groupId: override.groupId || null,
+        title: override.title || file.name,
+        memo,
+        note: memo,
+        timestamp,
+        dateFormatted: date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        timeFormatted: date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        thumbnailLink: file.thumbnailLink || null,
+        webViewLink: file.webViewLink || null,
+        imageUrl: null,
+        hasGps: false,
+      };
+    });
+
     const virtualItems = (configData.virtualEntries || []).map((entry, idx) => {
       const timestamp = new Date(entry.customDate).getTime();
       const d = new Date(timestamp);
@@ -255,7 +319,7 @@ export async function loadDriveData(accessToken, folderId) {
       ? configData.groups
       : [];
     const groupItems = configuredGroups.map((group) => {
-      const timelineFileItems = [...items, ...textItems];
+      const timelineFileItems = [...items, ...videoItems, ...textItems];
       const linkedFileIds = timelineFileItems
         .filter((item) => item.groupId === group.id)
         .map((item) => item.id);
@@ -300,7 +364,7 @@ export async function loadDriveData(accessToken, folderId) {
     });
 
     return {
-      items: [...items, ...textItems, ...virtualItems, ...groupItems],
+      items: [...items, ...videoItems, ...textItems, ...virtualItems, ...groupItems],
       configData,
       configFileId: configFile?.id,
     };
