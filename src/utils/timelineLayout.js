@@ -124,7 +124,9 @@ export function calculateTimelineLayout({
       );
       const activeWidth = Math.min(
         Math.max(0, dayWidth - 2 * cardInset),
-        naturalActiveWidth + widthBeyondNaturalRange * 0.5,
+        // Use the day width to spread dense timestamps horizontally before
+        // collision handling needs to create another vertical card lane.
+        naturalActiveWidth + widthBeyondNaturalRange,
       );
       const activeRatio = activeTimeSpan > 0
         ? (ratio - group.firstTimeRatio) / activeTimeSpan
