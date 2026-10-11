@@ -88,7 +88,7 @@ export default function EvidenceHeatmap({ evidence = [], availableYears = [] }) 
         <div>
           <h2 className="cv-heatmap-title">Evidence activity</h2>
           <p className="cv-heatmap-summary">
-            {yearTotal.toLocaleString()} {yearTotal === 1 ? "evidence" : "evidences"} in {year}
+            {yearTotal.toLocaleString()} {yearTotal === 1 ? "evidence item" : "evidence items"} in {year}
           </p>
         </div>
         <div className="cv-heatmap-year-controls" role="group" aria-label="Heatmap year">
@@ -148,7 +148,7 @@ export default function EvidenceHeatmap({ evidence = [], availableYears = [] }) 
               month: "long",
               day: "numeric",
             });
-            const description = `${count} ${count === 1 ? "evidence" : "evidences"} on ${label}`;
+            const description = `${count} evidence item${count === 1 ? "" : "s"} on ${label}`;
 
             return inYear ? (
               <button
