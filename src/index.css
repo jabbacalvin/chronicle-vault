@@ -297,23 +297,23 @@ button.cv-heatmap-day {
 }
 
 .cv-heatmap-day[data-level="1"] {
-  border-color: #14532d;
-  background: #0e4429;
+  border-color: #15803d;
+  background: #166534;
 }
 
 .cv-heatmap-day[data-level="2"] {
   border-color: #166534;
-  background: #006d32;
+  background: #14532d;
 }
 
 .cv-heatmap-day[data-level="3"] {
-  border-color: #22c55e;
-  background: #26a641;
+  border-color: #14532d;
+  background: #0f3d27;
 }
 
 .cv-heatmap-day[data-level="4"] {
-  border-color: #4ade80;
-  background: #39d353;
+  border-color: #0f3d27;
+  background: #052e16;
 }
 
 .cv-heatmap-day-outside {
