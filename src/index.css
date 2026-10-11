@@ -137,6 +137,221 @@ body,
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+.cv-view-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid rgb(51 65 85);
+  border-radius: 0.5rem;
+  background: rgb(15 23 42);
+  box-shadow: 0 10px 20px rgb(0 0 0 / 20%);
+}
+
+.cv-view-mode-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: rgb(148 163 184);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cv-view-mode-button:hover,
+.cv-view-mode-active {
+  background: rgb(30 41 59);
+  color: rgb(251 191 36);
+}
+
+.cv-view-mode-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.cv-evidence-heatmap {
+  --cv-heatmap-cell-size: 0.75rem;
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 6rem 1.25rem 1.25rem;
+  color: rgb(226 232 240);
+}
+
+.cv-heatmap-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cv-heatmap-title {
+  margin: 0;
+  color: rgb(226 232 240);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.cv-heatmap-summary {
+  margin-top: 0.2rem;
+  color: rgb(148 163 184);
+  font-size: 0.7rem;
+}
+
+.cv-heatmap-year-controls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(226 232 240);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+
+.cv-heatmap-year-controls button {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(51 65 85);
+  border-radius: 0.5rem;
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+  cursor: pointer;
+}
+
+.cv-heatmap-year-controls button:hover:not(:disabled) {
+  border-color: rgb(245 158 11);
+  color: rgb(251 191 36);
+}
+
+.cv-heatmap-year-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.cv-heatmap-scroll {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cv-heatmap-grid {
+  display: grid;
+  grid-template-rows: 1rem repeat(7, var(--cv-heatmap-cell-size));
+  width: max-content;
+  flex: 0 0 auto;
+  gap: 3px;
+  align-content: start;
+  margin-inline: auto;
+}
+
+.cv-heatmap-month,
+.cv-heatmap-weekday {
+  color: rgb(148 163 184);
+  font-size: 0.6rem;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+
+.cv-heatmap-weekday {
+  padding-right: 0.25rem;
+  text-align: right;
+}
+
+.cv-heatmap-day {
+  box-sizing: border-box;
+  width: var(--cv-heatmap-cell-size);
+  height: var(--cv-heatmap-cell-size);
+  padding: 0;
+  border: 1px solid rgb(51 65 85 / 70%);
+  border-radius: 2px;
+  background: #111827;
+}
+
+button.cv-heatmap-day {
+  cursor: default;
+}
+
+.cv-heatmap-day[data-level="1"] {
+  border-color: #14532d;
+  background: #0e4429;
+}
+
+.cv-heatmap-day[data-level="2"] {
+  border-color: #166534;
+  background: #006d32;
+}
+
+.cv-heatmap-day[data-level="3"] {
+  border-color: #22c55e;
+  background: #26a641;
+}
+
+.cv-heatmap-day[data-level="4"] {
+  border-color: #4ade80;
+  background: #39d353;
+}
+
+.cv-heatmap-day-outside {
+  visibility: hidden;
+}
+
+.cv-heatmap-legend {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  color: rgb(148 163 184);
+  font-size: 0.65rem;
+}
+
+.cv-heatmap-legend-cell {
+  display: inline-block;
+}
+
+@media (max-width: 640px) {
+  .cv-view-mode-button {
+    min-height: 2.5rem;
+    padding-inline: 0.7rem;
+    font-size: 0.72rem;
+  }
+
+  .cv-evidence-heatmap {
+    --cv-heatmap-cell-size: 0.55rem;
+    gap: 0.75rem;
+    padding: 5rem 0.75rem 0.75rem;
+  }
+
+  .cv-heatmap-grid {
+    gap: 2px;
+  }
+}
+
 .cv-timeline-scroll-area {
   touch-action: pan-x pinch-zoom;
   overscroll-behavior-x: contain;
