@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, X, ZoomIn, ZoomOut, Layers, FileText, Menu } from "lucide-react";
+import { Search, X, ZoomIn, ZoomOut, Layers, FileText, Menu, Activity, CalendarDays } from "lucide-react";
 import { MAX_TIMELINE_ZOOM, MIN_TIMELINE_ZOOM } from "../../utils/timelineLayout";
 
 export default function TimelineToolbar({
@@ -17,6 +17,8 @@ export default function TimelineToolbar({
   setIsFitView,
   timelineLayout,
   containerRef,
+  viewMode,
+  setViewMode,
   canEdit,
   isGroupingMode,
   isUploadingNote,
@@ -122,6 +124,29 @@ export default function TimelineToolbar({
           </span>
         </div>
         <div className="cv-timeline-action-group flex flex-wrap items-center gap-2 pointer-events-auto">
+          <div role="group" aria-label="Evidence view" className="cv-view-mode-toggle">
+            <button
+              type="button"
+              onClick={() => setViewMode("timeline")}
+              aria-pressed={viewMode === "timeline"}
+              className={viewMode === "timeline" ? "cv-view-mode-button cv-view-mode-active" : "cv-view-mode-button"}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("heatmap")}
+              disabled={isGroupingMode}
+              aria-pressed={viewMode === "heatmap"}
+              className={viewMode === "heatmap" ? "cv-view-mode-button cv-view-mode-active" : "cv-view-mode-button"}
+              title={isGroupingMode ? "Finish grouping to switch views" : "Show evidence by day"}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Heatmap
+            </button>
+          </div>
+          {viewMode === "timeline" && (
           <div
             role="group"
             aria-label="Timeline zoom controls"
@@ -195,6 +220,7 @@ export default function TimelineToolbar({
               100%
             </button>
           </div>
+          )}
           {canEdit && !isGroupingMode && (
             <>
               <button
@@ -213,6 +239,7 @@ export default function TimelineToolbar({
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
+                    setViewMode("timeline");
                     setIsGroupingMode(true);
                     setTargetGroupId(null);
                     setSelectedIds([]);
