@@ -37,19 +37,37 @@ function createDriveApiError(action, response) {
 export async function loadDriveData(accessToken, folderId) {
   try {
     const query = `'${folderId}' in parents and trashed = false`;
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webContentLink,webViewLink,thumbnailLink,imageMediaMetadata,createdTime)`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      },
-    );
+    const files = [];
+    let pageToken = null;
 
-    if (!res.ok) {
-      throw createDriveApiError("Google Drive API error", res);
-    }
+    // Drive returns a paginated file list. Read every page so larger vaults
+    // don't silently lose evidence after the first batch.
+    do {
+      const params = new URLSearchParams({
+        q: query,
+        pageSize: "1000",
+        fields:
+          "nextPageToken,files(id,name,mimeType,webContentLink,webViewLink,thumbnailLink,imageMediaMetadata,createdTime)",
+        supportsAllDrives: "true",
+        includeItemsFromAllDrives: "true",
+      });
+      if (pageToken) params.set("pageToken", pageToken);
 
-    const data = await res.json();
-    const files = data.files || [];
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+
+      if (!res.ok) {
+        throw createDriveApiError("Google Drive API error", res);
+      }
+
+      const data = await res.json();
+      files.push(...(data.files || []));
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
 
     const configFile = files.find((f) => f.name === "timeline-config.json");
     let configData = {
@@ -321,19 +339,25 @@ export async function loadDriveData(accessToken, folderId) {
     const groupItems = configuredGroups.map((group) => {
       const timelineFileItems = [...items, ...videoItems, ...textItems];
       const linkedFileIds = timelineFileItems
-        .filter((item) => item.groupId === group.id)
-        .map((item) => item.id);
-      // Group membership uses Drive file IDs for all supported file types.
-      const savedFileIds = Array.isArray(group.fileIds) ? group.fileIds : [];
+        .filter((item) => String(item.groupId ?? "") === String(group.id ?? ""))
+        .map((item) => String(item.id));
+      // Keep membership saved on the group as well as links saved on each
+      // item's override. Older configs used photoIds for this same purpose.
+      const savedFileIds = [
+        ...(Array.isArray(group.fileIds) ? group.fileIds : []),
+        ...(Array.isArray(group.photoIds) ? group.photoIds : []),
+      ]
+        .filter((id) => id != null)
+        .map(String);
       const availableFileIds = new Set(
-        [...timelineFileItems, ...virtualItems].map((item) => item.id),
+        [...timelineFileItems, ...virtualItems].map((item) => String(item.id)),
       );
-      const savedVirtualIds = savedFileIds.filter((id) =>
-        virtualItems.some((item) => item.id === id),
-      );
-      const fileIds = linkedFileIds.length
-        ? [...new Set([...linkedFileIds, ...savedVirtualIds])]
-        : [...new Set(savedFileIds.filter((id) => availableFileIds.has(id)))];
+      const fileIds = [
+        ...new Set([
+          ...linkedFileIds,
+          ...savedFileIds.filter((id) => availableFileIds.has(id)),
+        ]),
+      ];
       const rawDate = group.customDate || group.timestamp;
       const parsedTimestamp = rawDate
         ? new Date(rawDate).getTime()
