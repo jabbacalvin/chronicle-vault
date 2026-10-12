@@ -32,6 +32,14 @@ const getLocalDayStart = (timestamp) => {
   return dayStart;
 };
 
+const formatTimelineDayLabel = (date) =>
+  date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
 export function calculateTimelineLayout({
   filteredDisplayItems,
   timelineZoom,
@@ -196,11 +204,7 @@ export function calculateTimelineLayout({
             Math.ceil(group.entries.length / 2) * minCardCenterSeparation,
         );
 
-        const dayLabel = group.dayStart.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+        const dayLabel = formatTimelineDayLabel(group.dayStart);
         const labelLeft = TIMELINE_DATE_LABEL_LEFT_OFFSET;
         const labelRight = labelLeft + getTimelineDateLabelWidth(dayLabel);
         // Leave room for the date label, its gap, and the rotated group-card
@@ -385,11 +389,7 @@ export function calculateTimelineLayout({
       const dateX = TIMELINE_LEFT_PADDING + dayOffsets.get(group.dayOrdinal);
       const showLabel =
         index === 0 || dateX - lastDateLabelX >= MIN_DATE_LABEL_SPACING;
-      const label = group.dayStart.toLocaleDateString([], {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+      const label = formatTimelineDayLabel(group.dayStart);
       dateMarkers.push({
         id: `day-${group.dayStart.getTime()}`,
         dayOrdinal: group.dayOrdinal,
