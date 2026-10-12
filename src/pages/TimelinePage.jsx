@@ -8,6 +8,7 @@ import TimelineCardList from "../components/timeline/TimelineCardList";
 import TimelineToolbar from "../components/timeline/TimelineToolbar";
 import AppDialog from "../components/timeline/AppDialog";
 import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
+import EvidenceHeatmap from "../components/timeline/EvidenceHeatmap";
 import { isGoogleDriveAuthorizationError } from "../services/googleDriveService";
 import useDriveImageLoader from "../hooks/useDriveImageLoader";
 
@@ -68,6 +69,7 @@ export default function TimelinePage({
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [isFitView, setIsFitView] = useState(false);
+  const [viewMode, setViewMode] = useState("timeline");
   const [timelineViewport, setTimelineViewport] = useState({ width: 0, height: 0 });
 
   // App-level notifications and confirmation dialogs
@@ -291,6 +293,58 @@ export default function TimelinePage({
       );
     });
   }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
+
+  const heatmapEvidence = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    const startTimestamp = searchStartDate
+      ? new Date(`${searchStartDate}T00:00:00`).getTime()
+      : null;
+    const endTimestamp = searchEndDate
+      ? new Date(`${searchEndDate}T23:59:59.999`).getTime()
+      : null;
+    const searchableFields = [
+      "title",
+      "name",
+      "memo",
+      "note",
+      "noteContent",
+      "dateFormatted",
+      "timeFormatted",
+      "id",
+      "fileId",
+    ];
+    const matchesQuery = (entry) =>
+      searchableFields.some((field) =>
+        String(entry[field] ?? "").toLocaleLowerCase().includes(query),
+      );
+
+    return filteredDisplayItems.flatMap((entry) => {
+      const isGroup = entry.type === "event_group";
+      const groupMatchesQuery = isGroup && query && matchesQuery(entry);
+      const evidenceEntries = isGroup ? entry.photos || [] : [entry];
+
+      return evidenceEntries.filter((evidence) => {
+        const timestamp = Number(evidence.timestamp);
+        const matchesEvidenceQuery =
+          !query || groupMatchesQuery || matchesQuery(evidence);
+        const matchesDateRange =
+          Number.isFinite(timestamp) &&
+          (startTimestamp === null || timestamp >= startTimestamp) &&
+          (endTimestamp === null || timestamp <= endTimestamp);
+        return matchesEvidenceQuery && matchesDateRange;
+      });
+    });
+  }, [filteredDisplayItems, searchQuery, searchStartDate, searchEndDate]);
+
+  const heatmapYears = useMemo(() => {
+    const years = items
+      .filter((item) => item.type !== "event_group")
+      .map((item) => new Date(Number(item.timestamp)).getFullYear())
+      .filter(Number.isFinite);
+    return [...new Set([...years, new Date().getFullYear()])].sort(
+      (a, b) => a - b,
+    );
+  }, [items]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return undefined;
@@ -1192,6 +1246,8 @@ export default function TimelinePage({
         setIsFitView={setIsFitView}
         timelineLayout={timelineLayout}
         containerRef={containerRef}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
         canEdit={canEdit}
         isGroupingMode={isGroupingMode}
         isUploadingNote={isUploadingNote}
@@ -1209,21 +1265,27 @@ export default function TimelinePage({
         ref={containerRef}
         className="cv-timeline-scroll-area w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
       >
-        <div
-          style={
-            filteredDisplayItems.length > 0
-              ? {
-                  width: timelineLayout.canvasWidth,
-                  height: timelineLayout.canvasHeight,
-                }
-              : undefined
-          }
-          className={
-            filteredDisplayItems.length > 0
-              ? "relative shrink-0"
-              : "w-full h-full flex items-center justify-center"
-          }
-        >
+        {viewMode === "heatmap" ? (
+          <EvidenceHeatmap
+            evidence={heatmapEvidence}
+            availableYears={heatmapYears}
+          />
+        ) : (
+          <div
+            style={
+              filteredDisplayItems.length > 0
+                ? {
+                    width: timelineLayout.canvasWidth,
+                    height: timelineLayout.canvasHeight,
+                  }
+                : undefined
+            }
+            className={
+              filteredDisplayItems.length > 0
+                ? "relative shrink-0"
+                : "w-full h-full flex items-center justify-center"
+            }
+          >
           {timelineLayout.dateMarkers.map((marker) => (
             <div
               key={marker.id}
@@ -1291,7 +1353,8 @@ export default function TimelinePage({
               refs={{ cardRefs, cardContentRefs }}
             />
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ------------------------------------------------------------------- */}
