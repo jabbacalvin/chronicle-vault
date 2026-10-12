@@ -342,11 +342,8 @@ export async function loadDriveData(accessToken, folderId) {
         .filter((item) => String(item.groupId ?? "") === String(group.id ?? ""))
         .map((item) => String(item.id));
       // Keep membership saved on the group as well as links saved on each
-      // item's override. Older configs used photoIds for this same purpose.
-      const savedFileIds = [
-        ...(Array.isArray(group.fileIds) ? group.fileIds : []),
-        ...(Array.isArray(group.photoIds) ? group.photoIds : []),
-      ]
+      // item's override. Both sources are present in the current vault config.
+      const savedFileIds = (Array.isArray(group.fileIds) ? group.fileIds : [])
         .filter((id) => id != null)
         .map(String);
       const availableFileIds = new Set(
