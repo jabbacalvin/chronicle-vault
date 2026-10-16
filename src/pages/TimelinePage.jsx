@@ -1216,7 +1216,7 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className={`cv-timeline-scroll-area w-full flex-1 min-h-0 relative bg-slate-950 custom-scrollbar p-0 m-0 ${viewMode === "evidence" ? "overflow-x-hidden overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
+        className={`cv-timeline-scroll-area w-full flex-1 min-h-0 relative bg-slate-950 custom-scrollbar p-0 m-0 ${viewMode === "evidence" ? "overflow-x-auto overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
       >
         {viewMode === "evidence" ? (
           <EvidenceListView
