@@ -3,7 +3,7 @@ import { FileText, Film, Image as ImageIcon, Clock } from "lucide-react";
 
 const getThumbnailUrl = (item) => {
   if (!item?.thumbnailLink) return null;
-  return item.thumbnailLink.replace(/=s\\d+/, "=s1200");
+  return item.thumbnailLink.replace(/=s\d+/, "=s1200");
 };
 
 const isVideoEvidence = (item) =>
@@ -109,7 +109,7 @@ function EvidenceRow({
     <button
       type="button"
       onClick={onOpen}
-      className="block w-full text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+      className="block w-full rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-left shadow-md transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:p-4"
     >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="break-words text-base font-semibold text-slate-100">
@@ -161,7 +161,7 @@ export default function EvidenceListView({
         if (item.type === "event_group") {
           const photos = item.photos || [];
           return (
-            <section key={item.id} className="w-full border-b border-amber-500/25 pb-8">
+            <section key={item.id} className="w-full rounded-xl border border-amber-500/30 bg-slate-900/80 p-3 shadow-lg sm:p-5 lg:p-6">
               <header className="mb-5 border-b border-slate-700/70 pb-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-base font-semibold text-amber-300 sm:text-lg">
@@ -179,7 +179,7 @@ export default function EvidenceListView({
                   </p>
                 )}
               </header>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 {photos.length ? (
                   photos.map((photo, index) => (
                     <EvidenceRow
@@ -200,7 +200,7 @@ export default function EvidenceListView({
         }
 
         return (
-          <section key={item.id} className="w-full border-b border-slate-700/70 pb-8">
+          <section key={item.id} className="w-full">
             <EvidenceRow
               item={item}
               {...previewProps}
