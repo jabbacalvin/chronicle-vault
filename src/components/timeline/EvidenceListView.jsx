@@ -306,6 +306,7 @@ export default function EvidenceListView({
   items,
   onOpenEvidence,
   fetchItemImageUrl,
+  fetchItemThumbnailUrl,
   releaseItemImageUrl,
   zoom = 1,
   isFitView = false,
