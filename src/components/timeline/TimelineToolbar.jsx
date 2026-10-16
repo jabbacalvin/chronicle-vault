@@ -16,6 +16,8 @@ export default function TimelineToolbar({
   isFitView,
   setIsFitView,
   timelineLayout,
+  viewMode,
+  setViewMode,
   containerRef,
   canEdit,
   isGroupingMode,
@@ -122,6 +124,33 @@ export default function TimelineToolbar({
           </span>
         </div>
         <div className="cv-timeline-action-group flex flex-wrap items-center gap-2 pointer-events-auto">
+          <div
+            role="group"
+            aria-label="Evidence display mode"
+            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg"
+          >
+            {[
+              ["timeline", "Timeline"],
+              ["evidence", "Evidence"],
+            ].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={viewMode === mode}
+                onClick={() => {
+                  setViewMode(mode);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`rounded px-2 py-1.5 text-[10px] transition-colors ${
+                  viewMode === mode
+                    ? "bg-amber-500 font-semibold text-slate-950"
+                    : "text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div
             role="group"
             aria-label="Timeline zoom controls"
