@@ -67,7 +67,7 @@ export default function TimelinePage({
   canEdit = false,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
-  const [viewMode, setViewMode] = useState("timeline");
+  const [viewMode, setViewMode] = useState("evidence");
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [isFitView, setIsFitView] = useState(false);
   const [timelineViewport, setTimelineViewport] = useState({ width: 0, height: 0 });
