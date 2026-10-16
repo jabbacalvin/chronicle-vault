@@ -377,6 +377,7 @@ export default function TimelinePage({
     getCachedImageUrl,
     getThumbnailUrl,
     fetchItemImageUrl,
+    fetchItemThumbnailUrl,
     prefetchAdjacentPhotos,
     releaseItemImageUrl,
   } = useDriveImageLoader(accessToken);
@@ -1223,6 +1224,7 @@ export default function TimelinePage({
             items={filteredDisplayItems}
             onOpenEvidence={handleOpenEvidenceModal}
             fetchItemImageUrl={fetchItemImageUrl}
+            fetchItemThumbnailUrl={fetchItemThumbnailUrl}
             releaseItemImageUrl={releaseItemImageUrl}
             zoom={timelineZoom}
             isFitView={isFitView}
