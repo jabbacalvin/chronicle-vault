@@ -398,7 +398,7 @@ export default function TimelinePage({
   // ---------------------------------------------------------------------------
   // Open evidence viewer modal
   // ---------------------------------------------------------------------------
-  const handleOpenEvidenceModal = async (item) => {
+  const handleOpenEvidenceModal = async (item, initialIndex = 0) => {
     setLoadingItemId(item.id);
 
     let photosToView = [];
@@ -420,9 +420,13 @@ export default function TimelinePage({
     }
 
     const isEventGroup = item.type === "event_group";
+    const requestedIndex = Number.isInteger(initialIndex) ? initialIndex : 0;
+    const startIndex = isEventGroup
+      ? Math.max(0, Math.min(requestedIndex, photosToView.length - 1))
+      : 0;
     setModalGroup({
       photos: photosToView,
-      currentIndex: 0,
+      currentIndex: startIndex,
       groupId: isEventGroup ? item.id : null,
       groupTitle: item.title,
       groupMemo: isEventGroup ? item.memo || item.note || "" : "",
@@ -432,7 +436,7 @@ export default function TimelinePage({
       isEventGroup,
     });
 
-    if (photosToView[0].type === "text_note") {
+    if (photosToView[startIndex].type === "text_note") {
       setActiveImage(null);
       setIsModalImageLoading(false);
       setLoadingItemId(null);
@@ -440,7 +444,7 @@ export default function TimelinePage({
     }
 
     try {
-      const firstPhoto = photosToView[0];
+      const firstPhoto = photosToView[startIndex];
       const thumbnailUrl = isVideoEvidence(firstPhoto)
         ? null
         : getThumbnailUrl(firstPhoto);
@@ -458,7 +462,7 @@ export default function TimelinePage({
       setActiveImage(url);
 
       // Prepare neighboring carousel images so navigation is usually instant.
-      prefetchAdjacentPhotos(photosToView, 0);
+      prefetchAdjacentPhotos(photosToView, startIndex);
     } catch (err) {
       if (isGoogleDriveAuthorizationError(err)) {
         handleCloseModal();
@@ -1218,6 +1222,8 @@ export default function TimelinePage({
           <EvidenceListView
             items={filteredDisplayItems}
             onOpenEvidence={handleOpenEvidenceModal}
+            fetchItemImageUrl={fetchItemImageUrl}
+            releaseItemImageUrl={releaseItemImageUrl}
           />
         ) : (
         <div
