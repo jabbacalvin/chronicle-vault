@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FileText, Film, Image as ImageIcon, Clock } from "lucide-react";
+import { FileText, Film, Image as ImageIcon, Clock, Play } from "lucide-react";
 
 const getThumbnailUrl = (item) => {
   if (!item?.thumbnailLink) return null;
@@ -13,9 +13,39 @@ const isVideoEvidence = (item) =>
 function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImageHeight }) {
   const [hasError, setHasError] = useState(false);
   const [imageUrl, setImageUrl] = useState(() => getThumbnailUrl(item));
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const previewRef = useRef(null);
+  const videoPreviewMountedRef = useRef(true);
   const isVideo = isVideoEvidence(item);
   const thumbnailUrl = getThumbnailUrl(item);
+
+  useEffect(() => {
+    if (!isVideo) return undefined;
+    videoPreviewMountedRef.current = true;
+    return () => {
+      videoPreviewMountedRef.current = false;
+      releaseItemImageUrl?.(item);
+    };
+  }, [isVideo, item, releaseItemImageUrl]);
+
+  const handleLoadVideo = async (event) => {
+    event.stopPropagation();
+    if (videoUrl || isLoadingVideo || !fetchItemImageUrl) return;
+
+    setIsLoadingVideo(true);
+    setVideoError(false);
+    try {
+      const loadedUrl = await fetchItemImageUrl(item);
+      if (videoPreviewMountedRef.current) setVideoUrl(loadedUrl);
+      else releaseItemImageUrl?.(item);
+    } catch {
+      if (videoPreviewMountedRef.current) setVideoError(true);
+    } finally {
+      if (videoPreviewMountedRef.current) setIsLoadingVideo(false);
+    }
+  };
 
   useEffect(() => {
     if (isVideo || !fetchItemImageUrl) return undefined;
@@ -74,6 +104,52 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
   }
 
   const Icon = isVideo ? Film : ImageIcon;
+  if (isVideo) {
+    return (
+      <div ref={previewRef} className="w-full">
+        {videoUrl ? (
+          <video
+            className="block h-auto max-w-full bg-black object-contain"
+            style={{ maxHeight: `${maxImageHeight}px` }}
+            src={videoUrl}
+            poster={thumbnailUrl || undefined}
+            controls
+            playsInline
+            preload="metadata"
+            onClick={(event) => event.stopPropagation()}
+            aria-label={item.title || item.name || "Evidence video"}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleLoadVideo}
+            disabled={isLoadingVideo}
+            className="relative flex min-h-48 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-950/60 text-slate-200 disabled:cursor-wait"
+            aria-label={isLoadingVideo ? "Loading video" : `Load video: ${item.title || item.name || "Evidence"}`}
+          >
+            {thumbnailUrl ? (
+              <img
+                src={thumbnailUrl}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-contain opacity-60"
+              />
+            ) : null}
+            <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-slate-500 bg-slate-950/90 px-4 py-2 text-sm font-medium">
+              <Play className="h-4 w-4 fill-current" />
+              {isLoadingVideo ? "Loading video…" : "Load video"}
+            </span>
+          </button>
+        )}
+        {videoError && (
+          <p className="mt-2 text-xs text-rose-300">
+            Video could not be loaded. Check Drive access and try again.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div ref={previewRef} className="flex w-full items-center justify-center">
       {imageUrl && !hasError ? (
@@ -112,10 +188,19 @@ function EvidenceRow({
   ).trim();
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open evidence: ${item.title || item.name || "Untitled evidence"}`}
       onClick={onOpen}
-      className="block w-full rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-left shadow-md transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:p-4"
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-left shadow-md transition-colors hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:p-4"
     >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="break-words text-base font-semibold text-slate-100">
@@ -144,7 +229,7 @@ function EvidenceRow({
           {memo || "No evidence memo"}
         </span>
       </div>
-    </button>
+    </div>
   );
 }
 
