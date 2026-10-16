@@ -57,8 +57,10 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
     const loadFullImage = async () => {
       try {
         const fullImageUrl = await fetchItemImageUrl(item);
-        if (active) setImageUrl(fullImageUrl);
-        else releaseItemImageUrl?.(item);
+        if (active) {
+          setHasError(false);
+          setImageUrl(fullImageUrl);
+        } else releaseItemImageUrl?.(item);
       } catch {
         if (active && !thumbnailUrl) setHasError(true);
       }
@@ -106,16 +108,16 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
   const Icon = isVideo ? Film : ImageIcon;
   if (isVideo) {
     return (
-      <div ref={previewRef} className="w-full">
+      <div ref={previewRef} className="flex w-full justify-center">
         {videoUrl ? (
           <video
-            className="block h-auto max-w-full bg-black object-contain"
+            className="mx-auto block h-auto max-w-full bg-black object-contain"
             style={{ maxHeight: `${maxImageHeight}px` }}
             src={videoUrl}
             poster={thumbnailUrl || undefined}
             controls
             playsInline
-            preload="metadata"
+            preload="auto"
             onClick={(event) => event.stopPropagation()}
             aria-label={item.title || item.name || "Evidence video"}
           />
