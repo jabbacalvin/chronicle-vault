@@ -242,6 +242,7 @@ export default function TimelineToolbar({
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
+                    setViewMode("timeline");
                     setIsGroupingMode(true);
                     setTargetGroupId(null);
                     setSelectedIds([]);
