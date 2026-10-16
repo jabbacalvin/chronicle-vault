@@ -5,6 +5,7 @@ import MapModal from "../components/map/MapModal";
 import GroupModal from "../components/timeline/GroupModal";
 import TextNoteModal from "../components/timeline/TextNoteModal";
 import TimelineCardList from "../components/timeline/TimelineCardList";
+import EvidenceListView from "../components/timeline/EvidenceListView";
 import TimelineToolbar from "../components/timeline/TimelineToolbar";
 import AppDialog from "../components/timeline/AppDialog";
 import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
@@ -66,6 +67,7 @@ export default function TimelinePage({
   canEdit = false,
 }) {
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
+  const [viewMode, setViewMode] = useState("timeline");
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [isFitView, setIsFitView] = useState(false);
   const [timelineViewport, setTimelineViewport] = useState({ width: 0, height: 0 });
@@ -1052,6 +1054,7 @@ export default function TimelinePage({
     if (!container) return;
 
     const handleWheel = (e) => {
+      if (viewMode === "evidence") return;
       if (e.deltaY !== 0 || e.deltaX !== 0) {
         e.preventDefault();
 
@@ -1064,7 +1067,7 @@ export default function TimelinePage({
     });
 
     return () => container.removeEventListener("wheel", handleWheel);
-  }, [items]);
+  }, [items, viewMode]);
 
   // ---------------------------------------------------------------------------
   // Selection logic
@@ -1191,6 +1194,8 @@ export default function TimelinePage({
         isFitView={isFitView}
         setIsFitView={setIsFitView}
         timelineLayout={timelineLayout}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
         containerRef={containerRef}
         canEdit={canEdit}
         isGroupingMode={isGroupingMode}
@@ -1207,8 +1212,14 @@ export default function TimelinePage({
       {/* ------------------------------------------------------------------- */}
       <div
         ref={containerRef}
-        className="cv-timeline-scroll-area w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden relative bg-slate-950 custom-scrollbar p-0 m-0"
+        className={`cv-timeline-scroll-area w-full flex-1 min-h-0 relative bg-slate-950 custom-scrollbar p-0 m-0 ${viewMode === "evidence" ? "overflow-x-hidden overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
       >
+        {viewMode === "evidence" ? (
+          <EvidenceListView
+            items={filteredDisplayItems}
+            onOpenEvidence={handleOpenEvidenceModal}
+          />
+        ) : (
         <div
           style={
             filteredDisplayItems.length > 0
@@ -1292,6 +1303,7 @@ export default function TimelinePage({
             />
           )}
         </div>
+        )}
       </div>
 
       {/* ------------------------------------------------------------------- */}
