@@ -206,7 +206,9 @@ export async function loadDriveData(accessToken, folderId) {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          imageUrl: null, // Handled dynamically via authenticated blob fetch in the component
+          imageUrl: null, // Full-resolution evidence loads only when opened.
+          thumbnailLink: file.thumbnailLink || null,
+          mimeType: file.mimeType,
           latitude,
           longitude,
           hasGps: !!(latitude && longitude),
