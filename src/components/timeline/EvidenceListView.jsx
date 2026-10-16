@@ -165,7 +165,7 @@ export default function EvidenceListView({
   const availableHeight =
     viewportHeight ||
     (typeof window === "undefined" ? 900 : window.innerHeight);
-  const maxImageHeight = Math.max(220, availableHeight - 220);
+  const maxImageHeight = Math.max(220, availableHeight - 300);
   const previewProps = {
     fetchItemImageUrl,
     releaseItemImageUrl,
