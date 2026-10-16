@@ -1,21 +1,76 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FileText, Film, Image as ImageIcon, Clock } from "lucide-react";
+
+const isVideo = (item) =>
+  item?.type === "video" ||
+  String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
 const getThumbnailUrl = (item) => {
   if (!item?.thumbnailLink) return null;
   return item.thumbnailLink.replace(/=s\\d+/, "=s1200");
 };
 
-function EvidencePreview({ item }) {
+function EvidencePreview({
+  item,
+  fetchItemImageUrl,
+  releaseItemImageUrl,
+}) {
+  const [src, setSrc] = useState(() => getThumbnailUrl(item));
   const [hasError, setHasError] = useState(false);
+  const imageRef = useRef(null);
   const thumbnailUrl = getThumbnailUrl(item);
+
+  useEffect(() => {
+    if (
+      item.type === "text_note" ||
+      isVideo(item) ||
+      !item.fileId ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return undefined;
+    }
+
+    const image = imageRef.current;
+    if (!image) return undefined;
+
+    let isActive = true;
+    const loadFullImage = async () => {
+      try {
+        const url = await fetchItemImageUrl(item);
+        if (isActive) {
+          setSrc(url);
+          setHasError(false);
+        }
+      } catch {
+        // Keep the Drive thumbnail visible if the full image cannot be fetched.
+        if (isActive && !thumbnailUrl) setHasError(true);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          loadFullImage();
+        }
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(image);
+
+    return () => {
+      isActive = false;
+      observer.disconnect();
+      releaseItemImageUrl?.(item);
+    };
+  }, [item, fetchItemImageUrl, releaseItemImageUrl, thumbnailUrl]);
 
   if (item.type === "text_note") {
     const noteText = String(item.noteContent || item.memo || item.note || "").trim();
     return (
-      <div className="flex min-h-56 w-full items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-950 p-6 text-cyan-300">
+      <div className="flex min-h-56 w-full items-center justify-center bg-slate-950/50 p-6">
         <div className="max-w-xl text-center">
-          <FileText className="mx-auto mb-3 h-9 w-9" />
+          <FileText className="mx-auto mb-3 h-9 w-9 text-cyan-300" />
           <p className="line-clamp-6 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">
             {noteText || "Text evidence"}
           </p>
@@ -24,44 +79,50 @@ function EvidencePreview({ item }) {
     );
   }
 
-  if (thumbnailUrl && !hasError) {
+  if (src && !hasError) {
     return (
-      <div className="flex min-h-56 w-full items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-950 p-2">
+      <div className="flex min-h-56 w-full items-center justify-center overflow-hidden bg-black/40">
         <img
-          src={thumbnailUrl}
+          ref={imageRef}
+          src={src}
           alt=""
           loading="lazy"
           decoding="async"
-          className="h-auto w-auto max-h-[72vh] max-w-full object-contain"
+          className="block h-auto w-auto max-h-[82vh] max-w-full object-contain"
           onError={() => setHasError(true)}
         />
       </div>
     );
   }
 
-  const isVideo =
-    item.type === "video" ||
-    String(item.mimeType || "").toLowerCase().startsWith("video/");
-  const Icon = isVideo ? Film : ImageIcon;
-
+  const VideoIcon = isVideo(item) ? Film : ImageIcon;
   return (
-    <div className="flex min-h-56 w-full items-center justify-center rounded-lg border border-slate-700 bg-slate-950 text-slate-500">
-      <Icon className="h-10 w-10" />
+    <div className="flex min-h-56 w-full items-center justify-center bg-black/40 text-slate-500">
+      <VideoIcon className="h-10 w-10" />
     </div>
   );
 }
 
-function EvidenceRow({ item, onOpen }) {
+function EvidenceRow({
+  item,
+  onOpen,
+  fetchItemImageUrl,
+  releaseItemImageUrl,
+}) {
   const memo = String(item.memo || item.note || item.noteContent || "").trim();
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="grid w-full grid-cols-1 items-stretch gap-4 rounded-lg border border-slate-800 bg-slate-950/70 p-3 text-left transition-colors hover:border-amber-500/60 lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)] lg:gap-6 lg:p-5"
+      className="grid w-full grid-cols-1 items-stretch gap-4 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/70 text-left transition-colors hover:border-amber-500/60 lg:grid-cols-[minmax(0,2fr)_minmax(280px,0.9fr)] lg:gap-6"
     >
-      <EvidencePreview item={item} />
-      <span className="flex min-w-0 flex-col justify-center py-1 lg:py-4">
+      <EvidencePreview
+        item={item}
+        fetchItemImageUrl={fetchItemImageUrl}
+        releaseItemImageUrl={releaseItemImageUrl}
+      />
+      <span className="flex min-w-0 flex-col justify-center px-4 py-4 lg:py-6 lg:pr-6">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="break-words text-base font-semibold text-slate-100">
             {item.title || item.name || "Untitled evidence"}
@@ -86,7 +147,12 @@ function EvidenceRow({ item, onOpen }) {
   );
 }
 
-export default function EvidenceListView({ items, onOpenEvidence }) {
+export default function EvidenceListView({
+  items,
+  onOpenEvidence,
+  fetchItemImageUrl,
+  releaseItemImageUrl,
+}) {
   if (!items.length) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-sm text-slate-400">
@@ -124,11 +190,13 @@ export default function EvidenceListView({ items, onOpenEvidence }) {
               </header>
               <div className="space-y-4">
                 {photos.length ? (
-                  photos.map((photo) => (
+                  photos.map((photo, index) => (
                     <EvidenceRow
                       key={photo.id}
                       item={photo}
-                      onOpen={() => onOpenEvidence(item)}
+                      onOpen={() => onOpenEvidence(item, index)}
+                      fetchItemImageUrl={fetchItemImageUrl}
+                      releaseItemImageUrl={releaseItemImageUrl}
                     />
                   ))
                 ) : (
@@ -146,7 +214,12 @@ export default function EvidenceListView({ items, onOpenEvidence }) {
             key={item.id}
             className="w-full rounded-xl border border-slate-700 bg-slate-900/80 p-3 shadow-lg sm:p-5"
           >
-            <EvidenceRow item={item} onOpen={() => onOpenEvidence(item)} />
+            <EvidenceRow
+              item={item}
+              onOpen={() => onOpenEvidence(item, 0)}
+              fetchItemImageUrl={fetchItemImageUrl}
+              releaseItemImageUrl={releaseItemImageUrl}
+            />
           </section>
         );
       })}
