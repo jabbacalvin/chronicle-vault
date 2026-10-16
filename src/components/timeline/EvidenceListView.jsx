@@ -105,7 +105,11 @@ function EvidenceRow({
   releaseItemImageUrl,
   maxImageHeight,
 }) {
-  const memo = String(\n    item.type === "text_note"\n      ? item.noteContent || item.memo || item.note || ""\n      : item.memo || item.note || item.noteContent || "",\n  ).trim();
+  const memo = String(
+    item.type === "text_note"
+      ? item.noteContent || item.memo || item.note || ""
+      : item.memo || item.note || item.noteContent || "",
+  ).trim();
 
   return (
     <button
