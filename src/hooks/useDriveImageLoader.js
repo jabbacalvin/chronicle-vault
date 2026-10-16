@@ -205,6 +205,17 @@ export default function useDriveImageLoader(accessToken) {
     return loadPromise;
   };
 
+  // Keep the callback passed to evidence previews stable across renders. The
+  // loader implementation still reads the latest access token and cache refs,
+  // while mounted previews no longer tear down their observer and release a
+  // displayed blob URL whenever the parent renders.
+  const fetchItemImageUrlRef = useRef(fetchItemImageUrl);
+  fetchItemImageUrlRef.current = fetchItemImageUrl;
+  const stableFetchItemImageUrl = useCallback(
+    (item) => fetchItemImageUrlRef.current(item),
+    [],
+  );
+
   // Warm an image in the background. Errors are intentionally ignored because
   // prefetching must never interrupt the currently visible evidence.
   const prefetchItemImage = (item) => {
@@ -269,7 +280,7 @@ export default function useDriveImageLoader(accessToken) {
     getImageCacheKey,
     getCachedImageUrl,
     getThumbnailUrl,
-    fetchItemImageUrl,
+    fetchItemImageUrl: stableFetchItemImageUrl,
     prefetchAdjacentPhotos,
     releaseItemImageUrl,
   };
