@@ -153,22 +153,27 @@ export default function TimelineToolbar({
           </div>
           <div
             role="group"
-            aria-label="Timeline zoom controls"
+            aria-label={viewMode === "evidence" ? "Evidence zoom controls" : "Timeline zoom controls"}
             className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg"
           >
             <button
               type="button"
               onClick={() => {
-                setIsFitView(false);
-                setTimelineZoom((zoom) =>
+                const currentZoom = isFitView
+                  ? viewMode === "evidence"
+                    ? 1
+                    : timelineLayout.zoom
+                  : timelineZoom;
+                setTimelineZoom(
                   Math.max(
                     MIN_TIMELINE_ZOOM,
-                    Number(((isFitView ? timelineLayout.zoom : zoom) / 1.25).toFixed(3)),
+                    Number((currentZoom / 1.25).toFixed(3)),
                   ),
                 );
+                setIsFitView(false);
               }}
               disabled={!isFitView && timelineZoom <= MIN_TIMELINE_ZOOM}
-              aria-label="Zoom out on timeline"
+              aria-label={viewMode === "evidence" ? "Zoom out on evidence" : "Zoom out on timeline"}
               title="Zoom out"
               className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
             >
@@ -184,16 +189,21 @@ export default function TimelineToolbar({
             <button
               type="button"
               onClick={() => {
-                setIsFitView(false);
-                setTimelineZoom((zoom) =>
+                const currentZoom = isFitView
+                  ? viewMode === "evidence"
+                    ? 1
+                    : timelineLayout.zoom
+                  : timelineZoom;
+                setTimelineZoom(
                   Math.min(
                     MAX_TIMELINE_ZOOM,
-                    Number(((isFitView ? timelineLayout.zoom : zoom) * 1.25).toFixed(3)),
+                    Number((currentZoom * 1.25).toFixed(3)),
                   ),
                 );
+                setIsFitView(false);
               }}
               disabled={!isFitView && timelineZoom >= MAX_TIMELINE_ZOOM}
-              aria-label="Zoom in on timeline"
+              aria-label={viewMode === "evidence" ? "Zoom in on evidence" : "Zoom in on timeline"}
               title="Zoom in"
               className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40"
             >
@@ -207,7 +217,7 @@ export default function TimelineToolbar({
               }}
               disabled={isFitView}
               className="rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"
-              title="Fit the full timeline in view"
+              title={viewMode === "evidence" ? "Fit evidence to view" : "Fit the full timeline in view"}
             >
               Fit
             </button>

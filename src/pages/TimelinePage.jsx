@@ -1224,6 +1224,9 @@ export default function TimelinePage({
             onOpenEvidence={handleOpenEvidenceModal}
             fetchItemImageUrl={fetchItemImageUrl}
             releaseItemImageUrl={releaseItemImageUrl}
+            zoom={timelineZoom}
+            isFitView={isFitView}
+            viewportHeight={timelineViewport.height}
           />
         ) : (
         <div

@@ -10,7 +10,7 @@ const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
-function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl }) {
+function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImageHeight }) {
   const [hasError, setHasError] = useState(false);
   const [imageUrl, setImageUrl] = useState(() => getThumbnailUrl(item));
   const previewRef = useRef(null);
@@ -82,7 +82,8 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl }) {
           alt={item.title || item.name || "Evidence"}
           loading="lazy"
           decoding="async"
-          className="block h-auto max-h-[82vh] max-w-full object-contain"
+          className="block h-auto max-w-full object-contain"
+          style={{ maxHeight: `${maxImageHeight}px` }}
           onError={() => {
             if (imageUrl !== thumbnailUrl && thumbnailUrl) setImageUrl(thumbnailUrl);
             else setHasError(true);
@@ -102,6 +103,7 @@ function EvidenceRow({
   onOpen,
   fetchItemImageUrl,
   releaseItemImageUrl,
+  maxImageHeight,
 }) {
   const memo = String(item.memo || item.note || item.noteContent || "").trim();
 
@@ -126,6 +128,7 @@ function EvidenceRow({
           item={item}
           fetchItemImageUrl={fetchItemImageUrl}
           releaseItemImageUrl={releaseItemImageUrl}
+          maxImageHeight={maxImageHeight}
         />
         <span
           className={
@@ -146,6 +149,9 @@ export default function EvidenceListView({
   onOpenEvidence,
   fetchItemImageUrl,
   releaseItemImageUrl,
+  zoom = 1,
+  isFitView = false,
+  viewportHeight = 0,
 }) {
   if (!items.length) {
     return (
@@ -155,10 +161,22 @@ export default function EvidenceListView({
     );
   }
 
-  const previewProps = { fetchItemImageUrl, releaseItemImageUrl };
+  const zoomLevel = isFitView ? 1 : Math.max(0.05, Math.min(3, Number(zoom) || 1));
+  const availableHeight =
+    viewportHeight ||
+    (typeof window === "undefined" ? 900 : window.innerHeight);
+  const maxImageHeight = Math.max(220, availableHeight - 300);
+  const previewProps = {
+    fetchItemImageUrl,
+    releaseItemImageUrl,
+    maxImageHeight,
+  };
 
   return (
-    <div className="w-full space-y-8 px-3 pb-8 pt-24 sm:px-5 lg:px-8 2xl:px-12">
+    <div
+      className="w-full space-y-8 px-3 pb-8 pt-24 sm:px-5 lg:px-8 2xl:px-12"
+      style={{ zoom: zoomLevel, width: `${100 / zoomLevel}%` }}
+    >
       {items.map((item) => {
         if (item.type === "event_group") {
           const photos = item.photos || [];
