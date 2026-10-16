@@ -60,14 +60,14 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
   }, [fetchItemImageUrl, item, isVideo, releaseItemImageUrl, thumbnailUrl]);
 
   if (item.type === "text_note") {
-    const noteText = String(item.noteContent || item.memo || item.note || "").trim();
     return (
-      <div className="flex min-h-40 w-full items-center justify-center bg-slate-950/60 p-6 text-cyan-300">
-        <div className="max-w-3xl text-center">
-          <FileText className="mx-auto mb-3 h-9 w-9" />
-          <p className="line-clamp-6 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">
-            {noteText || "Text evidence"}
-          </p>
+      <div
+        className="flex min-h-40 w-full items-center justify-center bg-slate-950/60 p-6 text-cyan-300"
+        aria-label="Text note"
+      >
+        <div className="text-center">
+          <FileText className="mx-auto mb-2 h-9 w-9" />
+          <p className="text-sm text-slate-400">Text note</p>
         </div>
       </div>
     );
@@ -105,7 +105,7 @@ function EvidenceRow({
   releaseItemImageUrl,
   maxImageHeight,
 }) {
-  const memo = String(item.memo || item.note || item.noteContent || "").trim();
+  const memo = String(\n    item.type === "text_note"\n      ? item.noteContent || item.memo || item.note || ""\n      : item.memo || item.note || item.noteContent || "",\n  ).trim();
 
   return (
     <button
@@ -175,7 +175,7 @@ export default function EvidenceListView({
   return (
     <div
       className="w-full space-y-8 px-3 pb-8 pt-24 sm:px-5 lg:px-8 2xl:px-12"
-      style={{ zoom: zoomLevel, width: `${100 / zoomLevel}%` }}
+      style={{ zoom: zoomLevel }}
     >
       {items.map((item) => {
         if (item.type === "event_group") {
