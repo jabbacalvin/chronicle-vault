@@ -1,34 +1,109 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FileText, Film, Image as ImageIcon, Clock, Play } from "lucide-react";
 
-const getThumbnailUrl = (item) => {
-  if (!item?.thumbnailLink) return null;
-  return item.thumbnailLink.replace(/=s\d+/, "=s1200");
-};
-
 const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
-function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImageHeight }) {
+function EvidencePreview({
+  item,
+  fetchItemImageUrl,
+  fetchItemThumbnailUrl,
+  releaseItemImageUrl,
+  maxImageHeight,
+}) {
   const [hasError, setHasError] = useState(false);
-  const [imageUrl, setImageUrl] = useState(() => getThumbnailUrl(item));
+  const [imageUrl, setImageUrl] = useState(null);
+  const [thumbnailImageUrl, setThumbnailImageUrl] = useState(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
   const [videoUrl, setVideoUrl] = useState(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const previewRef = useRef(null);
   const videoPreviewMountedRef = useRef(true);
   const isVideo = isVideoEvidence(item);
-  const thumbnailUrl = getThumbnailUrl(item);
 
   useEffect(() => {
-    if (!isVideo) return undefined;
+    const element = previewRef.current;
+    if (!element) return undefined;
+
+    let active = true;
     videoPreviewMountedRef.current = true;
+
+    const loadVisiblePreview = async () => {
+      if (isVideo) setIsLoadingThumbnail(Boolean(item.thumbnailLink));
+      else setIsLoadingImage(Boolean(fetchItemImageUrl));
+
+      const thumbnailTask =
+        fetchItemThumbnailUrl && item.thumbnailLink
+          ? fetchItemThumbnailUrl(item)
+              .then((url) => {
+                if (active && url) {
+                  setThumbnailImageUrl(url);
+                  setHasError(false);
+                } else if (url) {
+                  releaseItemImageUrl?.(item);
+                }
+              })
+              .catch(() => {})
+          : Promise.resolve();
+
+      const imageTask =
+        !isVideo && fetchItemImageUrl
+          ? fetchItemImageUrl(item)
+              .then((url) => {
+                if (active && url) {
+                  setImageUrl(url);
+                  setHasError(false);
+                } else if (url) {
+                  releaseItemImageUrl?.(item);
+                }
+              })
+              .catch(() => {
+                if (active) setHasError(true);
+              })
+          : Promise.resolve();
+
+      await Promise.allSettled([thumbnailTask, imageTask]);
+      if (active) {
+        setIsLoadingImage(false);
+        setIsLoadingThumbnail(false);
+      }
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      loadVisiblePreview();
+      return () => {
+        active = false;
+        videoPreviewMountedRef.current = false;
+        releaseItemImageUrl?.(item);
+      };
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        loadVisiblePreview();
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(element);
+
     return () => {
+      active = false;
+      observer.disconnect();
       videoPreviewMountedRef.current = false;
       releaseItemImageUrl?.(item);
     };
-  }, [isVideo, item, releaseItemImageUrl]);
+  }, [
+    fetchItemImageUrl,
+    fetchItemThumbnailUrl,
+    item,
+    isVideo,
+    releaseItemImageUrl,
+  ]);
 
   const handleLoadVideo = async (event) => {
     event.stopPropagation();
@@ -47,50 +122,6 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
     }
   };
 
-  useEffect(() => {
-    if (isVideo || !fetchItemImageUrl) return undefined;
-
-    const element = previewRef.current;
-    if (!element) return undefined;
-
-    let active = true;
-    const loadFullImage = async () => {
-      try {
-        const fullImageUrl = await fetchItemImageUrl(item);
-        if (active) {
-          setHasError(false);
-          setImageUrl(fullImageUrl);
-        } else releaseItemImageUrl?.(item);
-      } catch {
-        if (active && !thumbnailUrl) setHasError(true);
-      }
-    };
-
-    if (typeof IntersectionObserver === "undefined") {
-      loadFullImage();
-      return () => {
-        active = false;
-        releaseItemImageUrl?.(item);
-      };
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        loadFullImage();
-      },
-      { rootMargin: "800px 0px" },
-    );
-    observer.observe(element);
-
-    return () => {
-      active = false;
-      observer.disconnect();
-      releaseItemImageUrl?.(item);
-    };
-  }, [fetchItemImageUrl, item, isVideo, releaseItemImageUrl, thumbnailUrl]);
-
   if (item.type === "text_note") {
     return (
       <div
@@ -106,19 +137,21 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
   }
 
   const Icon = isVideo ? Film : ImageIcon;
+  const previewImageUrl = imageUrl || thumbnailImageUrl;
   if (isVideo) {
     return (
       <div ref={previewRef} className="flex w-full justify-center">
         {videoUrl ? (
           <video
             className="mx-auto block h-auto max-w-full bg-black object-contain"
-            style={{ maxHeight: `${maxImageHeight}px` }}
+            style={{ maxHeight: maxImageHeight + "px" }}
             src={videoUrl}
-            poster={thumbnailUrl || undefined}
+            poster={thumbnailImageUrl || undefined}
             controls
             playsInline
             preload="auto"
             onClick={(event) => event.stopPropagation()}
+            onError={() => setVideoError(true)}
             aria-label={item.title || item.name || "Evidence video"}
           />
         ) : (
@@ -127,25 +160,38 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
             onClick={handleLoadVideo}
             disabled={isLoadingVideo}
             className="relative flex min-h-48 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-950/60 text-slate-200 disabled:cursor-wait"
-            aria-label={isLoadingVideo ? "Loading video" : `Load video: ${item.title || item.name || "Evidence"}`}
+            aria-label={isLoadingVideo ? "Loading video" : "Load video: " + (item.title || item.name || "Evidence")}
           >
-            {thumbnailUrl ? (
+            {thumbnailImageUrl ? (
               <img
-                src={thumbnailUrl}
+                src={thumbnailImageUrl}
                 alt=""
                 loading="lazy"
-                className="absolute inset-0 h-full w-full object-contain opacity-60"
+                className="absolute inset-0 h-full w-full object-contain opacity-70"
+                onError={() => setThumbnailImageUrl(null)}
               />
-            ) : null}
+            ) : (
+              <Film className="absolute h-12 w-12 text-slate-600" />
+            )}
+            {isLoadingThumbnail && (
+              <span className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-2 text-xs text-slate-200" role="status">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                Loading preview
+              </span>
+            )}
             <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-slate-500 bg-slate-950/90 px-4 py-2 text-sm font-medium">
-              <Play className="h-4 w-4 fill-current" />
+              {isLoadingVideo ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+              ) : (
+                <Play className="h-4 w-4 fill-current" />
+              )}
               {isLoadingVideo ? "Loading video…" : "Load video"}
             </span>
           </button>
         )}
         {videoError && (
           <p className="mt-2 text-xs text-rose-300">
-            Video could not be loaded. Check Drive access and try again.
+            Video could not be loaded or decoded. Check Drive access and browser codec support, then try again.
           </p>
         )}
       </div>
@@ -153,24 +199,43 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl, maxImag
   }
 
   return (
-    <div ref={previewRef} className="flex w-full items-center justify-center">
-      {imageUrl && !hasError ? (
+    <div ref={previewRef} className="relative flex w-full items-center justify-center">
+      {previewImageUrl && !hasError ? (
         <img
-          src={imageUrl}
+          src={previewImageUrl}
           alt={item.title || item.name || "Evidence"}
           loading="lazy"
           decoding="async"
           className="block h-auto max-w-full object-contain"
-          style={{ maxHeight: `${maxImageHeight}px` }}
+          style={{ maxHeight: maxImageHeight + "px" }}
           onError={() => {
-            if (imageUrl !== thumbnailUrl && thumbnailUrl) setImageUrl(thumbnailUrl);
-            else setHasError(true);
+            if (imageUrl && previewImageUrl === imageUrl) {
+              setImageUrl(null);
+              if (thumbnailImageUrl) setHasError(false);
+              else setHasError(true);
+            } else {
+              setThumbnailImageUrl(null);
+              if (!imageUrl) setHasError(true);
+            }
           }}
         />
       ) : (
         <div className="flex min-h-40 w-full items-center justify-center bg-slate-950/40 text-slate-500">
-          <Icon className="h-10 w-10" />
+          {isLoadingImage ? (
+            <span className="inline-flex items-center gap-3 text-sm text-slate-300" role="status" aria-live="polite">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+              Loading image…
+            </span>
+          ) : (
+            <Icon className="h-10 w-10" />
+          )}
         </div>
+      )}
+      {isLoadingImage && previewImageUrl && !hasError && (
+        <span className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-2 text-xs text-slate-200 shadow" role="status" aria-live="polite">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          Loading full image
+        </span>
       )}
     </div>
   );
@@ -180,6 +245,7 @@ function EvidenceRow({
   item,
   onOpen,
   fetchItemImageUrl,
+  fetchItemThumbnailUrl,
   releaseItemImageUrl,
   maxImageHeight,
 }) {
@@ -218,6 +284,7 @@ function EvidenceRow({
         <EvidencePreview
           item={item}
           fetchItemImageUrl={fetchItemImageUrl}
+          fetchItemThumbnailUrl={fetchItemThumbnailUrl}
           releaseItemImageUrl={releaseItemImageUrl}
           maxImageHeight={maxImageHeight}
         />
@@ -259,6 +326,7 @@ export default function EvidenceListView({
   const maxImageHeight = Math.max(220, availableHeight - 300);
   const previewProps = {
     fetchItemImageUrl,
+    fetchItemThumbnailUrl,
     releaseItemImageUrl,
     maxImageHeight,
   };
