@@ -10,6 +10,8 @@ export default function useDriveImageLoader(accessToken) {
   // requested while an earlier request is still loading/converting.
   const resolvedImageCacheRef = useRef(new Map());
   const inFlightImageCacheRef = useRef(new Map());
+  const thumbnailImageCacheRef = useRef(new Map());
+  const inFlightThumbnailCacheRef = useRef(new Map());
   const pendingUrlReleasesRef = useRef(new Map());
 
   // ---------------------------------------------------------------------------
@@ -29,6 +31,8 @@ export default function useDriveImageLoader(accessToken) {
       objectUrlsRef.current.clear();
       resolvedImageCacheRef.current.clear();
       inFlightImageCacheRef.current.clear();
+      thumbnailImageCacheRef.current.clear();
+      inFlightThumbnailCacheRef.current.clear();
     };
   }, []);
 
@@ -205,6 +209,47 @@ export default function useDriveImageLoader(accessToken) {
     return loadPromise;
   };
 
+  // Drive thumbnail links for private files require an authenticated request.
+  // Fetch them into object URLs instead of assigning the short-lived URL directly
+  // to an image element.
+  const fetchItemThumbnailUrl = async (item) => {
+    const thumbnailLink = item?.thumbnailLink;
+    if (!thumbnailLink) return null;
+
+    const cacheKey = getImageCacheKey(item);
+    if (cacheKey && thumbnailImageCacheRef.current.has(cacheKey)) {
+      const cachedUrl = thumbnailImageCacheRef.current.get(cacheKey);
+      cancelPendingRelease(cachedUrl);
+      return cachedUrl;
+    }
+
+    if (cacheKey && inFlightThumbnailCacheRef.current.has(cacheKey)) {
+      return inFlightThumbnailCacheRef.current.get(cacheKey);
+    }
+
+    const loadPromise = (async () => {
+      try {
+        const response = await fetch(thumbnailLink, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch Drive thumbnail: ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (!blob.size) throw new Error("Google Drive returned an empty thumbnail.");
+
+        const objectUrl = createTrackedObjectUrl(blob);
+        if (cacheKey) thumbnailImageCacheRef.current.set(cacheKey, objectUrl);
+        return objectUrl;
+      } finally {
+        if (cacheKey) inFlightThumbnailCacheRef.current.delete(cacheKey);
+      }
+    })();
+
+    if (cacheKey) inFlightThumbnailCacheRef.current.set(cacheKey, loadPromise);
+    return loadPromise;
+  };
+
   // Keep the callback passed to evidence previews stable across renders. The
   // loader implementation still reads the latest access token and cache refs,
   // while mounted previews no longer tear down their observer and release a
@@ -213,6 +258,12 @@ export default function useDriveImageLoader(accessToken) {
   fetchItemImageUrlRef.current = fetchItemImageUrl;
   const stableFetchItemImageUrl = useCallback(
     (item) => fetchItemImageUrlRef.current(item),
+    [],
+  );
+  const fetchItemThumbnailUrlRef = useRef(fetchItemThumbnailUrl);
+  fetchItemThumbnailUrlRef.current = fetchItemThumbnailUrl;
+  const stableFetchItemThumbnailUrl = useCallback(
+    (item) => fetchItemThumbnailUrlRef.current(item),
     [],
   );
 
@@ -245,19 +296,31 @@ export default function useDriveImageLoader(accessToken) {
     const cacheKey = getImageCacheKey(item);
     if (!cacheKey) return;
 
-    const url = resolvedImageCacheRef.current.get(cacheKey);
-    if (!url || !url.startsWith("blob:")) return;
+    const urls = new Set([
+      resolvedImageCacheRef.current.get(cacheKey),
+      thumbnailImageCacheRef.current.get(cacheKey),
+    ]);
+    urls.forEach((url) => {
+      if (!url?.startsWith("blob:")) return;
+      cancelPendingRelease(url);
+      const timer = setTimeout(() => {
+        pendingUrlReleasesRef.current.delete(url);
+        const isCached =
+          resolvedImageCacheRef.current.get(cacheKey) === url ||
+          thumbnailImageCacheRef.current.get(cacheKey) === url;
+        if (!isCached) return;
 
-    cancelPendingRelease(url);
-    const timer = setTimeout(() => {
-      pendingUrlReleasesRef.current.delete(url);
-      if (resolvedImageCacheRef.current.get(cacheKey) !== url) return;
-
-      URL.revokeObjectURL(url);
-      objectUrlsRef.current.delete(url);
-      resolvedImageCacheRef.current.delete(cacheKey);
-    }, 2000);
-    pendingUrlReleasesRef.current.set(url, timer);
+        URL.revokeObjectURL(url);
+        objectUrlsRef.current.delete(url);
+        if (resolvedImageCacheRef.current.get(cacheKey) === url) {
+          resolvedImageCacheRef.current.delete(cacheKey);
+        }
+        if (thumbnailImageCacheRef.current.get(cacheKey) === url) {
+          thumbnailImageCacheRef.current.delete(cacheKey);
+        }
+      }, 2000);
+      pendingUrlReleasesRef.current.set(url, timer);
+    });
   }, []);
 
   const prefetchAdjacentPhotos = (photos, currentIndex) => {
@@ -281,6 +344,7 @@ export default function useDriveImageLoader(accessToken) {
     getCachedImageUrl,
     getThumbnailUrl,
     fetchItemImageUrl: stableFetchItemImageUrl,
+    fetchItemThumbnailUrl: stableFetchItemThumbnailUrl,
     prefetchAdjacentPhotos,
     releaseItemImageUrl,
   };
