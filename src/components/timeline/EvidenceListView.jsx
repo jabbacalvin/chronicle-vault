@@ -5,6 +5,51 @@ const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
+const extractFirstVideoFrame = (src) =>
+  new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      finish(new Error("Timed out while decoding video preview."));
+    }, 15000);
+
+    const finish = (error, frame) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      video.onloadeddata = null;
+      video.onerror = null;
+      video.removeAttribute("src");
+      video.load();
+      if (error) reject(error);
+      else resolve(frame);
+    };
+
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.onloadeddata = () => {
+      try {
+        if (!video.videoWidth || !video.videoHeight) {
+          throw new Error("The browser could not decode a video frame.");
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Could not create a video preview.");
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        finish(null, canvas.toDataURL("image/jpeg", 0.84));
+      } catch (error) {
+        finish(error);
+      }
+    };
+    video.onerror = () =>
+      finish(new Error("The browser could not decode a video preview."));
+    video.src = src;
+    video.load();
+  });
+
 function EvidencePreview({
   item,
   fetchItemImageUrl,
@@ -22,6 +67,7 @@ function EvidencePreview({
   const [videoError, setVideoError] = useState(false);
   const previewRef = useRef(null);
   const videoPreviewMountedRef = useRef(true);
+  const videoFrameFallbackAttemptedRef = useRef(false);
   const isVideo = isVideoEvidence(item);
 
   useEffect(() => {
@@ -35,19 +81,25 @@ function EvidencePreview({
       if (isVideo) setIsLoadingThumbnail(Boolean(item.thumbnailLink));
       else setIsLoadingImage(Boolean(fetchItemImageUrl));
 
-      const thumbnailTask =
-        fetchItemThumbnailUrl && item.thumbnailLink
-          ? fetchItemThumbnailUrl(item)
-              .then((url) => {
-                if (active && url) {
-                  setThumbnailImageUrl(url);
-                  setHasError(false);
-                } else if (url) {
-                  releaseItemImageUrl?.(item);
-                }
-              })
-              .catch(() => {})
-          : Promise.resolve();
+      const thumbnailTask = (async () => {
+        let url = null;
+        if (fetchItemThumbnailUrl && item.thumbnailLink) {
+          try {
+            url = await fetchItemThumbnailUrl(item);
+          } catch {
+            // Some Drive videos do not have a generated thumbnail.
+          }
+        }
+
+        if (active && url) {
+          setThumbnailImageUrl(url);
+          setHasError(false);
+        } else if (!active && url) {
+          releaseItemImageUrl?.(item);
+        } else if (isVideo) {
+          await loadVideoFrameFallback();
+        }
+      })();
 
       const imageTask =
         !isVideo && fetchItemImageUrl
@@ -104,6 +156,26 @@ function EvidencePreview({
     isVideo,
     releaseItemImageUrl,
   ]);
+
+  const loadVideoFrameFallback = async () => {
+    if (videoFrameFallbackAttemptedRef.current || !fetchItemImageUrl) return;
+    videoFrameFallbackAttemptedRef.current = true;
+    setIsLoadingThumbnail(true);
+
+    try {
+      const videoSourceUrl = await fetchItemImageUrl(item);
+      if (!videoPreviewMountedRef.current) {
+        releaseItemImageUrl?.(item);
+        return;
+      }
+      const frame = await extractFirstVideoFrame(videoSourceUrl);
+      if (videoPreviewMountedRef.current) setThumbnailImageUrl(frame);
+    } catch {
+      // Keep the play control available if this browser cannot decode a still.
+    } finally {
+      if (videoPreviewMountedRef.current) setIsLoadingThumbnail(false);
+    }
+  };
 
   const handleLoadVideo = async (event) => {
     event.stopPropagation();
@@ -168,7 +240,10 @@ function EvidencePreview({
                 alt=""
                 loading="lazy"
                 className="absolute inset-0 h-full w-full object-contain opacity-70"
-                onError={() => setThumbnailImageUrl(null)}
+                onError={() => {
+                  setThumbnailImageUrl(null);
+                  if (isVideo) loadVideoFrameFallback();
+                }}
               />
             ) : (
               <Film className="absolute h-12 w-12 text-slate-600" />
