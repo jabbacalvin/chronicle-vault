@@ -206,7 +206,7 @@ export async function loadDriveData(accessToken, folderId) {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          imageUrl: null, // Full-resolution evidence loads only when opened.
+          imageUrl: null,
           thumbnailLink: file.thumbnailLink || null,
           mimeType: file.mimeType,
           latitude,
