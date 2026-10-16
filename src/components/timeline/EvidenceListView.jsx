@@ -75,14 +75,14 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl }) {
 
   const Icon = isVideo ? Film : ImageIcon;
   return (
-    <div ref={previewRef} className="w-full">
+    <div ref={previewRef} className="flex w-full items-center justify-center">
       {imageUrl && !hasError ? (
         <img
           src={imageUrl}
           alt={item.title || item.name || "Evidence"}
           loading="lazy"
           decoding="async"
-          className="mx-auto block h-auto max-h-[82vh] w-full object-contain"
+          className="block h-auto max-h-[82vh] max-w-full object-contain"
           onError={() => {
             if (imageUrl !== thumbnailUrl && thumbnailUrl) setImageUrl(thumbnailUrl);
             else setHasError(true);
@@ -121,20 +121,22 @@ function EvidenceRow({
           {item.timeFormatted ? ` · ${item.timeFormatted}` : ""}
         </span>
       </div>
-      <EvidencePreview
-        item={item}
-        fetchItemImageUrl={fetchItemImageUrl}
-        releaseItemImageUrl={releaseItemImageUrl}
-      />
-      {memo ? (
-        <span className="mt-3 block whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">
-          {memo}
+      <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:gap-6">
+        <EvidencePreview
+          item={item}
+          fetchItemImageUrl={fetchItemImageUrl}
+          releaseItemImageUrl={releaseItemImageUrl}
+        />
+        <span
+          className={
+            memo
+              ? "whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300"
+              : "text-xs italic text-slate-500"
+          }
+        >
+          {memo || "No evidence memo"}
         </span>
-      ) : (
-        <span className="mt-3 block text-xs italic text-slate-500">
-          No evidence memo
-        </span>
-      )}
+      </div>
     </button>
   );
 }
