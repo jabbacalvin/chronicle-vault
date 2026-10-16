@@ -74,26 +74,25 @@ function EvidencePreview({ item, fetchItemImageUrl, releaseItemImageUrl }) {
   }
 
   const Icon = isVideo ? Film : ImageIcon;
-  if (imageUrl && !hasError) {
-    return (
-      <img
-        ref={previewRef}
-        src={imageUrl}
-        alt={item.title || item.name || "Evidence"}
-        loading="lazy"
-        decoding="async"
-        className="mx-auto block h-auto max-h-[82vh] w-full object-contain"
-        onError={() => {
-          if (imageUrl !== thumbnailUrl && thumbnailUrl) setImageUrl(thumbnailUrl);
-          else setHasError(true);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="flex min-h-40 w-full items-center justify-center bg-slate-950/40 text-slate-500">
-      <Icon className="h-10 w-10" />
+    <div ref={previewRef} className="w-full">
+      {imageUrl && !hasError ? (
+        <img
+          src={imageUrl}
+          alt={item.title || item.name || "Evidence"}
+          loading="lazy"
+          decoding="async"
+          className="mx-auto block h-auto max-h-[82vh] w-full object-contain"
+          onError={() => {
+            if (imageUrl !== thumbnailUrl && thumbnailUrl) setImageUrl(thumbnailUrl);
+            else setHasError(true);
+          }}
+        />
+      ) : (
+        <div className="flex min-h-40 w-full items-center justify-center bg-slate-950/40 text-slate-500">
+          <Icon className="h-10 w-10" />
+        </div>
+      )}
     </div>
   );
 }
