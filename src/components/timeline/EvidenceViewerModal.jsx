@@ -59,8 +59,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
     <>
       {modalGroup && (
         <div
-          onClick={handleCloseModal}
-          className="cv-evidence-viewer fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 cursor-pointer"
+          className="cv-evidence-viewer fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6"
         >
           {/* Modal Header Bar */}
           <div
