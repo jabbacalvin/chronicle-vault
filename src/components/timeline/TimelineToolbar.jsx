@@ -127,7 +127,7 @@ export default function TimelineToolbar({
           <div
             role="group"
             aria-label="Evidence display mode"
-            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg"
+            className="cv-view-mode-switch flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-lg"
           >
             {[
               ["timeline", "Timeline"],
@@ -141,7 +141,7 @@ export default function TimelineToolbar({
                   setViewMode(mode);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`rounded px-2 py-1.5 text-[10px] transition-colors ${
+                className={`cv-view-mode-option rounded px-2 py-1.5 text-[10px] text-center transition-colors ${
                   viewMode === mode
                     ? "bg-amber-500 font-semibold text-slate-950"
                     : "text-slate-300 hover:bg-slate-800"
