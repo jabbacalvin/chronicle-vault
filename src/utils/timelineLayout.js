@@ -431,14 +431,24 @@ export function calculateTimelineLayout({
       ) {
         const labelLeft = dayMarker.left + TIMELINE_DATE_LABEL_LEFT_OFFSET;
         const labelRight = labelLeft + dayMarker.labelWidth;
-        const minCardCenter =
-          labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth;
-        const maxCardCenter =
-          dayRight - cardHalfWidth - cardGutter;
+        const connectorReach =
+          cardHalfWidth - TIMELINE_CARD_CONNECTOR_OVERLAP;
+        const minCardCenter = Math.max(
+          labelRight + TIMELINE_DATE_LABEL_CARD_GAP + cardHalfWidth,
+          itemX - connectorReach,
+        );
+        const maxCardCenter = Math.min(
+          dayRight - cardHalfWidth - cardGutter,
+          itemX + connectorReach,
+        );
         if (
+          minCardCenter <= maxCardCenter &&
           cardX - cardHalfWidth < labelRight &&
           cardX + cardHalfWidth > labelLeft
         ) {
+          // Keep the stem vertical and attached to the card. If the card
+          // cannot clear the date label within the stem's reach, leave it
+          // anchored to the evidence timestamp instead of detaching it.
           cardX = Math.min(maxCardCenter, Math.max(cardX, minCardCenter));
         }
       }
