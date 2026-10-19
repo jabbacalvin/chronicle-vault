@@ -138,7 +138,7 @@ body,
 }
 
 .cv-timeline-scroll-area {
-  touch-action: pan-x pinch-zoom;
+  touch-action: pan-x pan-y pinch-zoom;
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
@@ -420,6 +420,19 @@ body,
   .cv-toolbar-controls .cv-timeline-action-group > [role="group"] {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .cv-toolbar-controls .cv-view-mode-switch {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .cv-toolbar-controls .cv-view-mode-option {
+    display: inline-flex;
+    flex: 1 1 50%;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
 
   .cv-toolbar-controls .cv-timeline-action-group > button {
