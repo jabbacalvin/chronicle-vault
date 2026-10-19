@@ -28,6 +28,19 @@ export function isGoogleDriveAuthorizationError(error) {
   return status === 401 || /unauthorized|invalid credentials|invalid_grant|token.*expired/i.test(String(error?.message || error || ""));
 }
 
+export async function checkDriveConnection(accessToken, folderId) {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  if (!response.ok) {
+    throw createDriveApiError("Drive connection check", response);
+  }
+}
+
 function createDriveApiError(action, response) {
   const error = new Error(`${action}: Google Drive API error ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`);
   error.status = response.status;

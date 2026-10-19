@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Folder, Key, ShieldCheck } from "lucide-react";
 
-export default function SetupModal({ onSave }) {
+export default function SetupModal({ onSave, isReconnect = false }) {
   const [clientId, setClientId] = useState(
     () => localStorage.getItem("chronicle_client_id") || "",
   );
@@ -80,12 +80,13 @@ export default function SetupModal({ onSave }) {
       <div className="cv-modal-panel bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-amber-500" /> Connect Google
-            Drive Vault
+            <ShieldCheck className="w-4 h-4 text-amber-500" />
+            {isReconnect ? "Reconnect to Google Drive" : "Connect Google Drive Vault"}
           </h2>
           <p className="text-xs text-slate-400">
-            Sign in with Google to read evidence from your Drive folder. Access
-            to editing tools is based on this vault’s administrator list.
+            {isReconnect
+              ? "Your Drive connection expired or was revoked. Sign in again to resume saving. Your current edits will stay open while you reconnect."
+              : "Sign in with Google to read evidence from your Drive folder. Access to editing tools is based on this vault’s administrator list."}
           </p>
         </div>
 
@@ -128,7 +129,7 @@ export default function SetupModal({ onSave }) {
             type="submit"
             className="mt-2 w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
           >
-            Sign In & Open Vault
+            {isReconnect ? "Reconnect & Return to Vault" : "Sign In & Open Vault"}
           </button>
         </form>
       </div>
