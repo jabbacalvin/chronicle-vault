@@ -129,6 +129,11 @@ export async function loadDriveData(accessToken, folderId) {
         f.name?.toLowerCase().endsWith(".txt") || f.mimeType === "text/plain",
     );
     const videoFiles = files.filter((file) => getVideoMimeType(file));
+    const pdfFiles = files.filter(
+      (file) =>
+        String(file.mimeType || "").toLowerCase() === "application/pdf" ||
+        String(file.name || "").toLowerCase().endsWith(".pdf"),
+    );
 
     // Process each image file asynchronously to extract robust EXIF data
     const items = await Promise.all(
@@ -320,6 +325,46 @@ export async function loadDriveData(accessToken, folderId) {
       };
     });
 
+    const pdfItems = pdfFiles.map((file) => {
+      const override = configData.overrides?.[file.id] || {};
+      const overrideTimestamp = override.customDate
+        ? new Date(override.customDate).getTime()
+        : NaN;
+      const createdTimestamp = new Date(file.createdTime).getTime();
+      const timestamp = Number.isFinite(overrideTimestamp)
+        ? overrideTimestamp
+        : Number.isFinite(createdTimestamp)
+          ? createdTimestamp
+          : Date.now();
+      const date = new Date(timestamp);
+      const memo = override.memo ?? override.note ?? "";
+
+      return {
+        id: file.id,
+        fileId: file.id,
+        type: "pdf",
+        mimeType: "application/pdf",
+        groupId: override.groupId || null,
+        title: override.title || file.name,
+        memo,
+        note: memo,
+        timestamp,
+        dateFormatted: date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        timeFormatted: date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        thumbnailLink: file.thumbnailLink || null,
+        webViewLink: file.webViewLink || null,
+        imageUrl: null,
+        hasGps: false,
+      };
+    });
+
     const virtualItems = (configData.virtualEntries || []).map((entry, idx) => {
       const timestamp = new Date(entry.customDate).getTime();
       const d = new Date(timestamp);
@@ -352,7 +397,7 @@ export async function loadDriveData(accessToken, folderId) {
       ? configData.groups
       : [];
     const groupItems = configuredGroups.map((group) => {
-      const timelineFileItems = [...items, ...videoItems, ...textItems];
+      const timelineFileItems = [...items, ...videoItems, ...textItems, ...pdfItems];
       const linkedFileIds = timelineFileItems
         .filter((item) => String(item.groupId ?? "") === String(group.id ?? ""))
         .map((item) => String(item.id));
@@ -400,7 +445,7 @@ export async function loadDriveData(accessToken, folderId) {
     });
 
     return {
-      items: [...items, ...videoItems, ...textItems, ...virtualItems, ...groupItems],
+      items: [...items, ...videoItems, ...textItems, ...pdfItems, ...virtualItems, ...groupItems],
       configData,
       configFileId: configFile?.id,
     };

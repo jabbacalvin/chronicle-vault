@@ -16,6 +16,11 @@ const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
+const isPdfEvidence = (item) =>
+  item?.type === "pdf" ||
+  String(item?.mimeType || "").toLowerCase() === "application/pdf" ||
+  String(item?.title || item?.name || "").toLowerCase().endsWith(".pdf");
+
 const compareGroupedEvidence = (left, right) => {
   const leftTimestamp = Number(left.timestamp);
   const rightTimestamp = Number(right.timestamp);
@@ -446,7 +451,7 @@ export default function TimelinePage({
 
     try {
       const firstPhoto = photosToView[startIndex];
-      const thumbnailUrl = isVideoEvidence(firstPhoto)
+      const thumbnailUrl = isVideoEvidence(firstPhoto) || isPdfEvidence(firstPhoto)
         ? null
         : getThumbnailUrl(firstPhoto);
 
@@ -500,7 +505,7 @@ export default function TimelinePage({
       return;
     }
     const cachedUrl = getCachedImageUrl(targetPhoto);
-    const thumbnailUrl = isVideoEvidence(targetPhoto)
+    const thumbnailUrl = isVideoEvidence(targetPhoto) || isPdfEvidence(targetPhoto)
       ? null
       : getThumbnailUrl(targetPhoto);
 

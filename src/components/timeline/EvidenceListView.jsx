@@ -5,6 +5,11 @@ const isVideoEvidence = (item) =>
   item?.type === "video" ||
   String(item?.mimeType || "").toLowerCase().startsWith("video/");
 
+const isPdfEvidence = (item) =>
+  item?.type === "pdf" ||
+  String(item?.mimeType || "").toLowerCase() === "application/pdf" ||
+  String(item?.title || item?.name || "").toLowerCase().endsWith(".pdf");
+
 const extractFirstVideoFrame = (src) =>
   new Promise((resolve, reject) => {
     const video = document.createElement("video");
@@ -69,6 +74,7 @@ function EvidencePreview({
   const videoPreviewMountedRef = useRef(true);
   const videoFrameFallbackAttemptedRef = useRef(false);
   const isVideo = isVideoEvidence(item);
+  const isPdf = isPdfEvidence(item);
 
   useEffect(() => {
     const element = previewRef.current;
@@ -83,7 +89,7 @@ function EvidencePreview({
 
       const thumbnailTask = (async () => {
         let url = null;
-        if (fetchItemThumbnailUrl && item.thumbnailLink) {
+        if (!isPdf && fetchItemThumbnailUrl && item.thumbnailLink) {
           try {
             url = await fetchItemThumbnailUrl(item);
           } catch {
@@ -154,6 +160,7 @@ function EvidencePreview({
     fetchItemThumbnailUrl,
     item,
     isVideo,
+    isPdf,
     releaseItemImageUrl,
   ]);
 
@@ -204,6 +211,47 @@ function EvidencePreview({
           <FileText className="mx-auto mb-2 h-9 w-9" />
           <p className="text-sm text-slate-400">Text note</p>
         </div>
+      </div>
+    );
+  }
+
+  if (isPdf) {
+    return (
+      <div ref={previewRef} className="w-full">
+        {imageUrl ? (
+          <iframe
+            src={imageUrl}
+            title={item.title || item.name || "PDF evidence"}
+            className="block w-full rounded-lg border border-slate-700 bg-white"
+            style={{ height: Math.max(320, Math.min(maxImageHeight, 640)) + "px" }}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : (
+          <div className="flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-lg bg-slate-950/60 text-slate-400">
+            {isLoadingImage ? (
+              <span className="inline-flex items-center gap-3 text-sm text-slate-300" role="status" aria-live="polite">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                Loading PDF…
+              </span>
+            ) : (
+              <>
+                <FileText className="h-10 w-10 text-rose-300" />
+                <span>{hasError ? "PDF preview could not be loaded" : "PDF document"}</span>
+              </>
+            )}
+          </div>
+        )}
+        {item.webViewLink && (
+          <a
+            href={item.webViewLink}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="mt-2 inline-flex text-xs text-amber-300 hover:text-amber-200"
+          >
+            Open PDF in Google Drive
+          </a>
+        )}
       </div>
     );
   }
