@@ -3,6 +3,7 @@ import TimelinePage from "./pages/TimelinePage";
 import SetupModal from "./components/SetupModal";
 import {
   loadDriveData,
+  checkDriveConnection,
   saveConfigToDrive,
   createTextNoteInDrive,
   updateTextNoteInDrive,
@@ -173,6 +174,45 @@ export default function App() {
 
     fetchData();
   }, [config, showSetupForAuthorizationError]);
+
+  // Check Drive access periodically so expired or revoked tokens prompt for
+  // reconnection before the user tries to save an edit.
+  useEffect(() => {
+    if (!config?.accessToken || !config?.folderId) return undefined;
+
+    let active = true;
+    let checkInProgress = false;
+    const checkConnection = async () => {
+      if (
+        !active ||
+        checkInProgress ||
+        !navigator.onLine ||
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+
+      checkInProgress = true;
+      try {
+        await checkDriveConnection(config.accessToken, config.folderId);
+      } catch (err) {
+        if (active) showSetupForAuthorizationError(err);
+      } finally {
+        checkInProgress = false;
+      }
+    };
+
+    const intervalId = window.setInterval(checkConnection, 60_000);
+    window.addEventListener("online", checkConnection);
+    document.addEventListener("visibilitychange", checkConnection);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("online", checkConnection);
+      document.removeEventListener("visibilitychange", checkConnection);
+    };
+  }, [config?.accessToken, config?.folderId, showSetupForAuthorizationError]);
 
   const handleSaveConfig = (newConfig) => {
     setConnectionStatus("connecting");
@@ -545,9 +585,7 @@ export default function App() {
       </header>
 
       <main className="w-full flex-1 min-h-0 flex flex-col relative overflow-hidden m-0 p-0">
-        {!config || showSetup ? (
-          <SetupModal onSave={handleSaveConfig} />
-        ) : (
+        {config && (
           <TimelinePage
             images={images}
             isLoading={isLoading}
@@ -558,6 +596,12 @@ export default function App() {
             onAuthenticationError={showSetupForAuthorizationError}
             onUpdateTextNote={handleUpdateTextNote}
             canEdit={isAdmin}
+          />
+        )}
+        {(!config || showSetup) && (
+          <SetupModal
+            onSave={handleSaveConfig}
+            isReconnect={connectionStatus === "reconnect"}
           />
         )}
       </main>
