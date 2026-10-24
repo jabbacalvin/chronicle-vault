@@ -31,6 +31,12 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
   const isCurrentVideo =
     currentModalPhoto?.type === "video" ||
     String(currentModalPhoto?.mimeType || "").toLowerCase().startsWith("video/");
+  const isCurrentPdf =
+    currentModalPhoto?.type === "pdf" ||
+    String(currentModalPhoto?.mimeType || "").toLowerCase() === "application/pdf" ||
+    String(currentModalPhoto?.title || currentModalPhoto?.name || "")
+      .toLowerCase()
+      .endsWith(".pdf");
   const currentVideoErrorKey = `${currentModalPhoto?.id || ""}:${activeImage || ""}`;
   const {
     setTextNoteBeingEdited,
@@ -154,7 +160,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                   <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
 
                   <span className="text-xs text-slate-400 font-mono">
-                    {isCurrentVideo ? "Loading video..." : "Loading evidence..."}
+                    {isCurrentVideo ? "Loading video..." : isCurrentPdf ? "Loading PDF..." : "Loading evidence..."}
                   </span>
                 </div>
               ) : currentModalPhoto?.type === "text_note" ? (
@@ -163,6 +169,23 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                     currentModalPhoto.memo ||
                     "(Empty note)"}
                 </article>
+              ) : activeImage && isCurrentPdf ? (
+                <div className="flex h-full min-h-0 w-full flex-col items-center gap-2">
+                  <iframe
+                    src={activeImage}
+                    title={currentModalPhoto?.title || currentModalPhoto?.name || "PDF evidence"}
+                    className="min-h-[50vh] w-full flex-1 rounded-lg bg-white"
+                  />
+                  <a
+                    href={currentModalPhoto?.webViewLink || activeImage}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                    className="shrink-0 text-xs text-amber-300 hover:text-amber-200"
+                  >
+                    Open PDF in a new tab
+                  </a>
+                </div>
               ) : isCurrentVideo && videoErrorKey === currentVideoErrorKey ? (
                 <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-300">
                   <span>This video format could not be played in this browser.</span>
