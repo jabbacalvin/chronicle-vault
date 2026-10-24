@@ -273,7 +273,10 @@ export default function useDriveImageLoader(accessToken) {
     if (
       !item ||
       item.type === "video" ||
-      String(item.mimeType || "").toLowerCase().startsWith("video/")
+      String(item.mimeType || "").toLowerCase().startsWith("video/") ||
+      item.type === "pdf" ||
+      String(item.mimeType || "").toLowerCase() === "application/pdf" ||
+      String(item.title || item.name || "").toLowerCase().endsWith(".pdf")
     ) {
       return;
     }
