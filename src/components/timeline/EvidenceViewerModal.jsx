@@ -20,12 +20,14 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
     isSavingModalGroup,
     modalGroupEditTitle,
     modalGroupEditMemo,
+    modalGroupEditTags,
     modalGroupEditDate,
     modalGroupEditError,
     isSavingModalDetails,
     modalEditTitle,
     modalEditDate,
     modalEditMemo,
+    modalEditTags,
     modalEditError
   } = state;
   const isCurrentVideo =
@@ -49,6 +51,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
     handleCancelEditingModalGroup,
     setModalGroupEditTitle,
     setModalGroupEditMemo,
+    setModalGroupEditTags,
     setModalGroupEditDate,
     handleStartEditingModalGroup,
     handleSaveModalDetails,
@@ -57,6 +60,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
     setModalEditTitle,
     setModalEditDate,
     setModalEditMemo,
+    setModalEditTags,
     handleStartEditingModalDetails,
     handleModalNavigate
   } = actions;
@@ -272,6 +276,16 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                           />
                         </label>
                         <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                          Group Tags
+                          <input
+                            type="text"
+                            value={modalGroupEditTags}
+                            onChange={(event) => setModalGroupEditTags(event.target.value)}
+                            placeholder="school, communication"
+                            className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                          />
+                        </label>
+                        <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                           Group Memo
                           <textarea
                             rows={3}
@@ -321,6 +335,11 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                             <Edit3 className="w-4 h-4" />
                           </button>}
                         </div>
+                        {Array.isArray(modalGroup.groupTags) && modalGroup.groupTags.length > 0 && (
+                          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                            {modalGroup.groupTags.map((tag) => <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-2 py-0.5 text-xs text-sky-200">{tag}</span>)}
+                          </div>
+                        )}
                         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
                           <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400 text-center">
                             Group Memo
@@ -385,6 +404,16 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                     </label>
 
                     <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
+                      Tags
+                      <input
+                        type="text"
+                        value={modalEditTags}
+                        onChange={(event) => setModalEditTags(event.target.value)}
+                        placeholder="school, communication"
+                        className="w-full normal-case tracking-normal text-center font-sans text-sm text-slate-100 bg-slate-950 border border-slate-700 rounded-md px-2.5 py-2 outline-none focus:border-amber-500"
+                      />
+                    </label>
+                    <label className="w-full flex flex-col items-center gap-1 text-center text-[10px] uppercase tracking-wider font-mono text-amber-400">
                       Memo
                       <textarea
                         rows={3}
@@ -430,6 +459,11 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                       {currentModalPhoto.dateFormatted} ·{" "}
                       {currentModalPhoto.timeFormatted}
                     </p>
+                    {Array.isArray(currentModalPhoto.tags) && currentModalPhoto.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                        {currentModalPhoto.tags.map((tag) => <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-2 py-0.5 text-xs text-sky-200">{tag}</span>)}
+                      </div>
+                    )}
                     <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
                       <h3 className="text-[10px] uppercase tracking-wider font-mono text-amber-400 text-center">
                         Photo Memo
