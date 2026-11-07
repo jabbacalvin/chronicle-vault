@@ -1,8 +1,7 @@
 export const normalizeEvidenceTags = (value) => {
   const values = Array.isArray(value)
     ? value
-    : String(value || "").split(/[,
-]/);
+    : String(value || "").split(",").flatMap((part) => part.split(String.fromCharCode(10)));
   const seen = new Set();
   return values
     .map((tag) => String(tag || "").trim().replace(/^#+/, "").slice(0, 32))
