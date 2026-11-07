@@ -158,7 +158,7 @@ export default function TimelineCardList({
 
                 {!timelineLayout.isCompact && (
                   <div
-                    className="absolute w-48 -translate-x-1/2 z-30"
+                    className="absolute w-56 -translate-x-1/2 z-30"
                     style={{
                       left: `calc(50% + ${entryLayout.cardX - entryLayout.x}px)`,
                       [isTop ? "bottom" : "top"]:
@@ -306,10 +306,17 @@ export default function TimelineCardList({
                           </h3>
 
                           {Array.isArray(item.tags) && item.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {item.tags.map((tag) => (
-                                <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-1.5 py-0.5 text-[9px] text-sky-200">{tag}</span>
+                            <div
+                              className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden"
+                              title={item.tags.join(", ")}
+                              aria-label={`Tags: ${item.tags.join(", ")}`}
+                            >
+                              {item.tags.slice(0, 2).map((tag) => (
+                                <span key={tag} className="max-w-[82px] truncate rounded-full border border-sky-500/30 bg-sky-950/50 px-1.5 py-0.5 text-[9px] text-sky-200">{tag}</span>
                               ))}
+                              {item.tags.length > 2 && (
+                                <span className="shrink-0 rounded-full border border-sky-500/30 bg-sky-950/50 px-1.5 py-0.5 text-[9px] text-sky-200">+{item.tags.length - 2}</span>
+                              )}
                             </div>
                           )}
 
