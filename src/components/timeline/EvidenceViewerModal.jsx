@@ -311,8 +311,8 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                       </form>
                     ) : (
                       <>
-                        <div className="relative flex items-center justify-center gap-3 text-center">
-                          <div className="w-full min-w-0">
+                        <div className="flex w-full items-start justify-between gap-3 text-center">
+                          <div className="min-w-0 flex-1">
                             <p className="text-[10px] uppercase tracking-wider font-mono text-amber-400">
                               Group
                             </p>
@@ -328,7 +328,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                           {canEdit && <button
                             type="button"
                             onClick={handleStartEditingModalGroup}
-                            className="absolute right-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
+                            className="mt-0.5 shrink-0 text-slate-400 hover:text-amber-400 p-1 rounded hover:bg-slate-800 transition"
                             title="Edit group title, date, time, and memo"
                             aria-label="Edit group title, date, time, and memo"
                           >
@@ -440,7 +440,7 @@ export default function EvidenceViewerModal({ state, actions, canEdit = false })
                 ) : (
                   <>
                     <div className="relative flex items-center justify-center gap-3 text-center">
-                      <h2 className="text-sm font-semibold text-slate-100 break-words text-center">
+                      <h2 className="min-w-0 flex-1 text-sm font-semibold text-slate-100 break-words text-center">
                         {currentModalPhoto.title ||
                           currentModalPhoto.name ||
                           "Untitled Evidence"}
