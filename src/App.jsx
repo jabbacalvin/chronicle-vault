@@ -11,6 +11,7 @@ import {
 } from "./services/googleDriveService";
 import { Settings, ShieldCheck } from "lucide-react";
 import AdminAccessModal from "./components/AdminAccessModal";
+import { normalizeEvidenceTags } from "./utils/evidenceTags";
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizeVaultConfigData = (data = {}) => {
@@ -36,6 +37,7 @@ const buildTextNoteTimelineItem = ({
   content,
   timestamp,
   groupId = null,
+  tags = [],
 }) => {
   const date = new Date(Number(timestamp));
 
@@ -45,6 +47,7 @@ const buildTextNoteTimelineItem = ({
     type: "text_note",
     mimeType: "text/plain",
     groupId,
+    tags: normalizeEvidenceTags(tags),
     title,
     memo: content,
     note: content,
@@ -285,6 +288,7 @@ export default function App() {
           memo: group.memo || group.note || "",
           customDate: new Date(group.timestamp).toISOString(),
           fileIds: [...new Set(group.fileIds || [])],
+          tags: normalizeEvidenceTags(group.tags),
         }));
 
       const groupByFileId = new Map();
@@ -309,11 +313,12 @@ export default function App() {
         const updatedMemo = item.memo ?? item.note ?? "";
         const originalMemo = original.memo ?? original.note ?? "";
         const memoChanged = updatedMemo !== originalMemo;
+        const tagsChanged = JSON.stringify(normalizeEvidenceTags(item.tags)) !== JSON.stringify(normalizeEvidenceTags(original.tags));
 
         // Preserve existing title/date overrides for unchanged images. The
         // loaded values already include those overrides, so deleting them here
         // would silently reset them during an unrelated group save.
-        if (titleChanged || timeChanged || memoChanged) {
+        if (titleChanged || timeChanged || memoChanged || tagsChanged) {
           newOverrides[item.id] = {
             ...(newOverrides[item.id] || {}),
             ...(titleChanged ? { title: item.title } : {}),
@@ -321,6 +326,7 @@ export default function App() {
               ? { customDate: new Date(item.timestamp).toISOString() }
               : {}),
             ...(memoChanged ? { memo: updatedMemo } : {}),
+            ...(tagsChanged ? { tags: normalizeEvidenceTags(item.tags) } : {}),
           };
         }
 
@@ -364,7 +370,7 @@ export default function App() {
     }
   };
 
-  const handleAddTextNote = async ({ title, content, timestamp }) => {
+  const handleAddTextNote = async ({ title, content, timestamp, tags = [] }) => {
     if (!isAdmin || !config) return;
 
     try {
@@ -381,6 +387,7 @@ export default function App() {
         title,
         customDate: new Date(timestamp).toISOString(),
         memo: content,
+        tags: normalizeEvidenceTags(tags),
       };
       const updatedConfigData = {
         ...configData,
@@ -406,6 +413,7 @@ export default function App() {
           content,
           timestamp,
           groupId: noteOverride.groupId || null,
+          tags: noteOverride.tags,
         }),
       ]);
       markSaved();
@@ -419,7 +427,7 @@ export default function App() {
 
   const handleUpdateTextNote = async (
     noteId,
-    { title, content, timestamp },
+    { title, content, timestamp, tags = [] },
   ) => {
     if (!isAdmin || !config) return;
 
@@ -442,6 +450,7 @@ export default function App() {
           [noteId]: {
             ...preservedOverride,
             title,
+            tags: normalizeEvidenceTags(tags),
             customDate: new Date(timestamp).toISOString(),
           },
         },
@@ -466,6 +475,7 @@ export default function App() {
                   content,
                   timestamp,
                   groupId: item.groupId || preservedOverride.groupId || null,
+                  tags: normalizeEvidenceTags(tags),
                 }),
               }
             : item,
