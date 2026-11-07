@@ -403,6 +403,11 @@ function EvidenceRow({
           {item.timeFormatted ? ` · ${item.timeFormatted}` : ""}
         </span>
       </div>
+      {Array.isArray(item.tags) && item.tags.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {item.tags.map((tag) => <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-2 py-0.5 text-xs text-sky-200">{tag}</span>)}
+        </div>
+      )}
       <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:gap-6">
         <EvidencePreview
           item={item}
@@ -476,6 +481,11 @@ export default function EvidenceListView({
                     {photos.length ? ` · ${photos.length} items` : ""}
                   </span>
                 </div>
+                {Array.isArray(item.tags) && item.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {item.tags.map((tag) => <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-2 py-0.5 text-xs text-sky-200">{tag}</span>)}
+                  </div>
+                )}
                 {(item.memo || item.note) && (
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">
                     {item.memo || item.note}

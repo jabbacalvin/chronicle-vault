@@ -18,6 +18,7 @@ export default function TextNoteModal({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [incidentDate, setIncidentDate] = useState("");
+  const [tags, setTags] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -27,6 +28,7 @@ export default function TextNoteModal({
         : new Date();
       setTitle(note?.title || "");
       setContent(note?.noteContent ?? note?.memo ?? note?.note ?? "");
+      setTags(Array.isArray(note?.tags) ? note.tags.join(", ") : "");
       setIncidentDate(toLocalInputValue(date));
     }
   }, [isOpen, note]);
@@ -52,6 +54,7 @@ export default function TextNoteModal({
       title: finalTitle,
       content,
       timestamp: parsedTimestamp,
+      tags,
     });
   };
 
@@ -120,6 +123,17 @@ export default function TextNoteModal({
             </span>
           </label>
 
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Tags</span>
+            <input
+              type="text"
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-cyan-400"
+              placeholder="e.g. school, communication, medical"
+              aria-label="Text evidence tags, separated by commas"
+            />
+          </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
               {note ? "Text file content" : "Note"}

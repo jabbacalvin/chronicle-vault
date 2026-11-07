@@ -1,4 +1,5 @@
 import ExifReader from "exifreader";
+import { normalizeEvidenceTags } from "../utils/evidenceTags";
 
 const VIDEO_MIME_TYPES_BY_EXTENSION = {
   "3gp": "video/3gpp",
@@ -211,6 +212,7 @@ export async function loadDriveData(accessToken, folderId) {
           id: file.id,
           fileId: file.id, // Explicitly exposed for authenticated binary fetching
           groupId: override.groupId || null,
+          tags: normalizeEvidenceTags(override.tags),
           title: override.title || file.name,
           memo: override.memo ?? override.note ?? "",
           note: override.memo ?? override.note ?? "",
@@ -441,6 +443,7 @@ export async function loadDriveData(accessToken, folderId) {
           minute: "2-digit",
         }),
         fileIds,
+        tags: normalizeEvidenceTags(group.tags),
       };
     });
 

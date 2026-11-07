@@ -12,14 +12,16 @@ export default function GroupModal({
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(null);
+  const [tags, setTags] = useState("");
 
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSave({ title, note, date: date ?? defaultDate });
+    onSave({ title, note, tags, date: date ?? defaultDate });
     setTitle("");
     setNote("");
     setDate(null);
+    setTags("");
   };
 
   return (
@@ -67,6 +69,21 @@ export default function GroupModal({
               className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors resize-none h-24"
               placeholder="Enter detailed case notes, witness statements, or evidentiary context for this milestone..."
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+              Tags
+            </label>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              className="bg-slate-950 border border-slate-700 text-slate-100 text-sm rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors"
+              placeholder="e.g. school, communication, medical"
+              aria-label="Group tags, separated by commas"
+            />
+            <p className="text-[10px] text-slate-500">Separate tags with commas.</p>
           </div>
 
           <div className="flex flex-col gap-1">

@@ -11,6 +11,7 @@ import AppDialog from "../components/timeline/AppDialog";
 import EvidenceViewerModal from "../components/timeline/EvidenceViewerModal";
 import { isGoogleDriveAuthorizationError } from "../services/googleDriveService";
 import useDriveImageLoader from "../hooks/useDriveImageLoader";
+import { evidenceTagsToText, normalizeEvidenceTags } from "../utils/evidenceTags";
 
 const isVideoEvidence = (item) =>
   item?.type === "video" ||
@@ -93,6 +94,8 @@ export default function TimelinePage({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStartDate, setSearchStartDate] = useState("");
   const [searchEndDate, setSearchEndDate] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [editTags, setEditTags] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editMemo, setEditMemo] = useState("");
@@ -103,12 +106,14 @@ export default function TimelinePage({
   const [isSavingModalDetails, setIsSavingModalDetails] = useState(false);
   const [modalEditTitle, setModalEditTitle] = useState("");
   const [modalEditMemo, setModalEditMemo] = useState("");
+  const [modalEditTags, setModalEditTags] = useState("");
   const [modalEditDate, setModalEditDate] = useState("");
   const [modalEditError, setModalEditError] = useState("");
   const [isEditingModalGroup, setIsEditingModalGroup] = useState(false);
   const [isSavingModalGroup, setIsSavingModalGroup] = useState(false);
   const [modalGroupEditTitle, setModalGroupEditTitle] = useState("");
   const [modalGroupEditMemo, setModalGroupEditMemo] = useState("");
+  const [modalGroupEditTags, setModalGroupEditTags] = useState("");
   const [modalGroupEditDate, setModalGroupEditDate] = useState("");
   const [modalGroupEditError, setModalGroupEditError] = useState("");
 
@@ -251,6 +256,12 @@ export default function TimelinePage({
   // Search across visible timeline entries and the evidence contained in groups.
   // Date filters use each entry's effective timeline timestamp; groups also match
   // when any evidence inside the group falls within the selected range.
+  const availableTags = useMemo(() => {
+    const values = items.flatMap((item) => normalizeEvidenceTags(item.tags));
+    return [...new Map(values.map((tag) => [tag.toLocaleLowerCase(), tag])).values()]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [items]);
+
   const filteredDisplayItems = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
     const startTimestamp = searchStartDate
@@ -260,44 +271,50 @@ export default function TimelinePage({
       ? new Date(`${searchEndDate}T23:59:59.999`).getTime()
       : null;
     const searchableFields = [
-      "title",
-      "name",
-      "memo",
-      "note",
-      "noteContent",
-      "dateFormatted",
-      "timeFormatted",
-      "id",
-      "fileId",
+      "title", "name", "memo", "note", "noteContent",
+      "dateFormatted", "timeFormatted", "id", "fileId",
     ];
+    const matchesTags = (entry) => {
+      const tags = normalizeEvidenceTags(entry.tags).map((tag) => tag.toLocaleLowerCase());
+      return !selectedTags.length || selectedTags.some((tag) => tags.includes(tag.toLocaleLowerCase()));
+    };
 
-    return displayItems.filter((item) => {
-      const groupEvidence =
-        item.type === "event_group" ? item.photos || [] : [];
-      const searchableEntries = [item, ...groupEvidence];
-      const matchesQuery =
-        !query ||
-        searchableEntries.some((entry) =>
-          searchableFields.some((field) =>
-            String(entry[field] ?? "").toLocaleLowerCase().includes(query),
-          ),
-        );
+    return displayItems
+      .filter((item) => {
+        const groupEvidence = item.type === "event_group" ? item.photos || [] : [];
+        const searchableEntries = [item, ...groupEvidence];
+        const matchesQuery =
+          !query ||
+          searchableEntries.some((entry) =>
+            searchableFields.some((field) =>
+              String(entry[field] ?? "").toLocaleLowerCase().includes(query),
+            ),
+          );
+        if (!matchesQuery) return false;
 
-      if (!matchesQuery) return false;
-      if (!searchStartDate && !searchEndDate) return true;
+        if (searchStartDate || searchEndDate) {
+          const timestamps = [
+            item.timestamp,
+            ...groupEvidence.map((entry) => entry.timestamp),
+          ].filter(Number.isFinite);
+          if (!timestamps.some((timestamp) =>
+            (startTimestamp === null || timestamp >= startTimestamp) &&
+            (endTimestamp === null || timestamp <= endTimestamp)
+          )) return false;
+        }
 
-      const timestamps = [
-        item.timestamp,
-        ...groupEvidence.map((entry) => entry.timestamp),
-      ].filter(Number.isFinite);
-
-      return timestamps.some(
-        (timestamp) =>
-          (startTimestamp === null || timestamp >= startTimestamp) &&
-          (endTimestamp === null || timestamp <= endTimestamp),
-      );
-    });
-  }, [displayItems, searchQuery, searchStartDate, searchEndDate]);
+        if (selectedTags.length) {
+          return matchesTags(item) || groupEvidence.some(matchesTags);
+        }
+        return true;
+      })
+      .map((item) => {
+        if (item.type !== "event_group" || !selectedTags.length || matchesTags(item)) {
+          return item;
+        }
+        return { ...item, photos: (item.photos || []).filter(matchesTags) };
+      });
+  }, [displayItems, searchQuery, searchStartDate, searchEndDate, selectedTags]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return undefined;
@@ -436,6 +453,7 @@ export default function TimelinePage({
       groupId: isEventGroup ? item.id : null,
       groupTitle: item.title,
       groupMemo: isEventGroup ? item.memo || item.note || "" : "",
+      groupTags: isEventGroup ? normalizeEvidenceTags(item.tags) : [],
       groupTimestamp: isEventGroup ? item.timestamp : null,
       groupDateFormatted: isEventGroup ? item.dateFormatted : "",
       groupTimeFormatted: isEventGroup ? item.timeFormatted : "",
@@ -561,6 +579,7 @@ export default function TimelinePage({
 
     setModalEditTitle(photo.title || photo.name || "");
     setModalEditMemo(photo.memo || photo.note || "");
+    setModalEditTags(evidenceTagsToText(photo.tags));
     setModalEditDate(toDateTimeLocalValue(photo.timestamp));
     setModalEditError("");
     setIsEditingModalDetails(true);
@@ -571,6 +590,7 @@ export default function TimelinePage({
 
     setModalGroupEditTitle(modalGroup.groupTitle || "");
     setModalGroupEditMemo(modalGroup.groupMemo || "");
+    setModalGroupEditTags(evidenceTagsToText(items.find((item) => item.id === modalGroup.groupId)?.tags));
     setModalGroupEditDate(
       toDateTimeLocalValue(modalGroup.groupTimestamp),
     );
@@ -608,6 +628,7 @@ export default function TimelinePage({
       title: modalGroupEditTitle.trim() || group.title || "Untitled Group",
       memo: modalGroupEditMemo,
       note: modalGroupEditMemo,
+      tags: normalizeEvidenceTags(modalGroupEditTags),
       timestamp: updatedTimestamp,
       dateFormatted: updatedDate.toLocaleDateString([], {
         month: "short",
@@ -633,6 +654,7 @@ export default function TimelinePage({
             ...previous,
             groupTitle: updatedGroup.title,
             groupMemo: updatedGroup.memo,
+            groupTags: updatedGroup.tags,
             groupTimestamp: updatedGroup.timestamp,
             groupDateFormatted: updatedGroup.dateFormatted,
             groupTimeFormatted: updatedGroup.timeFormatted,
@@ -671,6 +693,7 @@ export default function TimelinePage({
       title: modalEditTitle.trim() || photo.title || photo.name,
       memo: modalEditMemo,
       note: modalEditMemo,
+      tags: normalizeEvidenceTags(modalEditTags),
       timestamp,
       dateFormatted: date.toLocaleDateString([], {
         month: "short",
@@ -773,6 +796,7 @@ export default function TimelinePage({
       type: "event_group",
       title: groupData.title || "Milestone Event",
       note: groupData.note || "",
+      tags: normalizeEvidenceTags(groupData.tags),
       memo: groupData.note || "",
       timestamp,
       dateFormatted: new Date(timestamp).toLocaleDateString([], {
@@ -966,6 +990,7 @@ export default function TimelinePage({
           title: editTitle !== "" ? editTitle : item.title,
           memo: editMemo,
           note: editMemo,
+          tags: normalizeEvidenceTags(editTags),
           timestamp: newTimestamp || item.timestamp,
           dateFormatted: d
             ? d.toLocaleDateString([], {
@@ -1020,6 +1045,7 @@ export default function TimelinePage({
     setEditingId(item.id);
     setEditTitle(item.title || "");
     setEditMemo(item.memo || item.note || "");
+    setEditTags(evidenceTagsToText(item.tags));
 
     setEditDate(toDateTimeLocalValue(item.timestamp));
   };
@@ -1157,12 +1183,14 @@ export default function TimelinePage({
     isSavingModalGroup,
     modalGroupEditTitle,
     modalGroupEditMemo,
+    modalGroupEditTags,
     modalGroupEditDate,
     modalGroupEditError,
     isSavingModalDetails,
     modalEditTitle,
     modalEditDate,
     modalEditMemo,
+    modalEditTags,
     modalEditError
   };
   const viewerActions = {
@@ -1176,6 +1204,7 @@ export default function TimelinePage({
     handleCancelEditingModalGroup,
     setModalGroupEditTitle,
     setModalGroupEditMemo,
+    setModalGroupEditTags,
     setModalGroupEditDate,
     handleStartEditingModalGroup,
     handleSaveModalDetails,
@@ -1184,6 +1213,7 @@ export default function TimelinePage({
     setModalEditTitle,
     setModalEditDate,
     setModalEditMemo,
+    setModalEditTags,
     handleStartEditingModalDetails,
     handleModalNavigate
   };
@@ -1199,6 +1229,9 @@ export default function TimelinePage({
         setSearchEndDate={setSearchEndDate}
         displayItems={displayItems}
         filteredDisplayItems={filteredDisplayItems}
+        availableTags={availableTags}
+        selectedTags={selectedTags}
+        setSelectedTags={setSelectedTags}
         timelineZoom={timelineZoom}
         setTimelineZoom={setTimelineZoom}
         isFitView={isFitView}
@@ -1299,9 +1332,11 @@ export default function TimelinePage({
                 title: editTitle,
                 memo: editMemo,
                 date: editDate,
+                tags: editTags,
                 setTitle: setEditTitle,
                 setMemo: setEditMemo,
                 setDate: setEditDate,
+                setTags: setEditTags,
               }}
               actions={{
                 setEditingId,

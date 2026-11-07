@@ -28,9 +28,11 @@ export default function TimelineCardList({
     title: editTitle,
     memo: editMemo,
     date: editDate,
+    tags: editTags,
     setTitle: setEditTitle,
     setMemo: setEditMemo,
     setDate: setEditDate,
+    setTags: setEditTags,
   } = editing;
   const {
     setEditingId,
@@ -261,6 +263,15 @@ export default function TimelineCardList({
                           />
 
                           <input
+                            type="text"
+                            value={editTags}
+                            onChange={(e) => setEditTags(e.target.value)}
+                            className="bg-slate-950 border border-slate-700 text-slate-100 text-[11px] rounded px-1.5 py-1 outline-none focus:border-amber-500"
+                            placeholder="Tags, comma-separated"
+                            aria-label="Evidence tags"
+                          />
+
+                          <input
                             type="datetime-local"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
@@ -293,6 +304,14 @@ export default function TimelineCardList({
                           >
                             {item.title}
                           </h3>
+
+                          {Array.isArray(item.tags) && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {item.tags.map((tag) => (
+                                <span key={tag} className="rounded-full border border-sky-500/30 bg-sky-950/50 px-1.5 py-0.5 text-[9px] text-sky-200">{tag}</span>
+                              ))}
+                            </div>
+                          )}
 
                           {(item.memo || item.note) && (
                             <p

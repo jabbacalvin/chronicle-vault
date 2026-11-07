@@ -11,6 +11,9 @@ export default function TimelineToolbar({
   setSearchEndDate,
   displayItems,
   filteredDisplayItems,
+  availableTags = [],
+  selectedTags = [],
+  setSelectedTags = () => {},
   timelineZoom,
   setTimelineZoom,
   isFitView,
@@ -104,13 +107,42 @@ export default function TimelineToolbar({
               className="cv-timeline-date-input w-32 bg-transparent text-xs normal-case tracking-normal text-slate-100 outline-none [color-scheme:dark]"
             />
           </label>
-          {(searchQuery || searchStartDate || searchEndDate) && (
+          {availableTags.length > 0 && (
+            <details className="relative pointer-events-auto">
+              <summary className="list-none cursor-pointer rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 shadow-lg hover:border-amber-500">
+                Tags{selectedTags.length ? ` · ${selectedTags.length}` : ""}
+              </summary>
+              <div className="absolute left-0 top-full z-50 mt-2 max-h-64 w-56 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+                <div className="mb-2 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider text-slate-400">
+                  <span>Filter by tag</span>
+                  {selectedTags.length > 0 && (
+                    <button type="button" onClick={() => setSelectedTags([])} className="text-amber-300 hover:text-amber-200">Clear</button>
+                  )}
+                </div>
+                {availableTags.map((tag) => (
+                  <label key={tag} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={selectedTags.includes(tag)}
+                      onChange={() => setSelectedTags((current) =>
+                        current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]
+                      )}
+                      className="accent-amber-500"
+                    />
+                    {tag}
+                  </label>
+                ))}
+              </div>
+            </details>
+          )}
+          {(searchQuery || searchStartDate || searchEndDate || selectedTags.length > 0) && (
             <button
               type="button"
               onClick={() => {
                 setSearchQuery("");
                 setSearchStartDate("");
                 setSearchEndDate("");
+                setSelectedTags([]);
               }}
               className="p-2 bg-slate-900 border border-slate-700 hover:border-amber-500 rounded-md text-slate-300 hover:text-amber-400 shadow-lg transition-colors cursor-pointer"
               title="Clear search and date filters"
